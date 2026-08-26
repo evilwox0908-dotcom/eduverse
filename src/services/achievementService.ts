@@ -1,0 +1,138 @@
+import { AchievementDefinition, AchievementCategory, AchievementRarity } from '../types';
+import { XP_RULES } from './xpService';
+
+export const MASTER_ACHIEVEMENTS: AchievementDefinition[] = [
+  {
+    id: 'FIRST_STEP',
+    name: 'First Step',
+    description: 'Complete 100% of your student profile with verified academic details.',
+    icon: 'UserCheck',
+    category: 'LEARNING',
+    rarity: 'COMMON',
+    rewardXp: XP_RULES.PROFILE_COMPLETED,
+    active: true,
+  },
+  {
+    id: 'FIRST_AI_DIALOGUE',
+    name: 'AI Inquisitor',
+    description: 'Engage with the EduVerse Gemini AI Teacher for deep conceptual mastery.',
+    icon: 'Sparkles',
+    category: 'LEARNING',
+    rarity: 'COMMON',
+    rewardXp: XP_RULES.ACHIEVEMENT_REWARDS.COMMON,
+    active: true,
+  },
+  {
+    id: 'FIRST_COMPETITION_ENTRY',
+    name: 'Arena Contender',
+    description: 'Register for an official EduVerse academic competition or Olympiad.',
+    icon: 'Award',
+    category: 'COMPETITION',
+    rarity: 'COMMON',
+    rewardXp: XP_RULES.ACHIEVEMENT_REWARDS.COMMON,
+    active: true,
+  },
+  {
+    id: 'COMPETITION_PIONEER',
+    name: 'Olympiad Finisher',
+    description: 'Successfully submit your first verified competition exam under strict integrity standards.',
+    icon: 'Trophy',
+    category: 'COMPETITION',
+    rarity: 'RARE',
+    rewardXp: XP_RULES.ACHIEVEMENT_REWARDS.RARE,
+    active: true,
+  },
+  {
+    id: 'PERFECT_PRECISION',
+    name: 'Flawless Execution',
+    description: 'Achieve a 100% perfect score in an official timed competition exam.',
+    icon: 'Crown',
+    category: 'ACADEMIC',
+    rarity: 'LEGENDARY',
+    rewardXp: XP_RULES.ACHIEVEMENT_REWARDS.LEGENDARY,
+    active: true,
+  },
+  {
+    id: 'ACADEMIC_DILIGENCE',
+    name: 'Consistent Scholar',
+    description: 'Maintain a verified 3-day active learning streak across platform activities.',
+    icon: 'Flame',
+    category: 'CONSISTENCY',
+    rarity: 'RARE',
+    rewardXp: XP_RULES.ACHIEVEMENT_REWARDS.RARE,
+    active: true,
+  },
+  {
+    id: 'GLOBAL_SCHOLAR',
+    name: 'Global Competitor',
+    description: 'Participate in an international global-scope competition against scholars worldwide.',
+    icon: 'Globe',
+    category: 'GLOBAL',
+    rarity: 'RARE',
+    rewardXp: XP_RULES.ACHIEVEMENT_REWARDS.RARE,
+    active: true,
+  },
+  {
+    id: 'SPEED_SOLVER',
+    name: 'Swift Intellect',
+    description: 'Submit an official verified exam in under 50% of the maximum allotted time with >80% accuracy.',
+    icon: 'Zap',
+    category: 'SPECIAL',
+    rarity: 'EPIC',
+    rewardXp: XP_RULES.ACHIEVEMENT_REWARDS.EPIC,
+    active: true,
+  },
+  {
+    id: 'LEVEL_5_VANGUARD',
+    name: 'Olympiad Vanguard',
+    description: 'Reach EduVerse Level 5 through continuous academic excellence and competition.',
+    icon: 'ShieldCheck',
+    category: 'ACADEMIC',
+    rarity: 'EPIC',
+    rewardXp: XP_RULES.ACHIEVEMENT_REWARDS.EPIC,
+    active: true,
+  },
+];
+
+export const RARITY_CONFIG: Record<
+  AchievementRarity,
+  { label: string; bg: string; text: string; border: string; glow: string }
+> = {
+  COMMON: {
+    label: 'Common',
+    bg: 'bg-slate-100/90',
+    text: 'text-slate-700',
+    border: 'border-slate-300',
+    glow: 'shadow-slate-200/50',
+  },
+  RARE: {
+    label: 'Rare',
+    bg: 'bg-blue-500/10',
+    text: 'text-blue-700',
+    border: 'border-blue-400/50',
+    glow: 'shadow-blue-500/20',
+  },
+  EPIC: {
+    label: 'Epic',
+    bg: 'bg-indigo-500/10',
+    text: 'text-indigo-700',
+    border: 'border-indigo-400/50',
+    glow: 'shadow-indigo-500/20',
+  },
+  LEGENDARY: {
+    label: 'Legendary',
+    bg: 'bg-amber-500/10',
+    text: 'text-amber-700',
+    border: 'border-amber-400/60',
+    glow: 'shadow-amber-500/30',
+  },
+};
+
+export const CATEGORY_LABELS: Record<AchievementCategory, string> = {
+  LEARNING: 'Learning',
+  COMPETITION: 'Competition',
+  CONSISTENCY: 'Consistency',
+  ACADEMIC: 'Academic',
+  GLOBAL: 'Global',
+  SPECIAL: 'Special',
+};

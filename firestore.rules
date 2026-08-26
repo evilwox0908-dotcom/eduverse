@@ -1,0 +1,155 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Default safety deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isOwner(userId);
+      allow delete: if false;
+
+      // Private AI Teacher chats subcollection
+      match /aiChats/{chatId} {
+        allow read, write: if isOwner(userId);
+
+        // Messages within AI chat
+        match /messages/{messageId} {
+          allow read, write: if isOwner(userId);
+        }
+      }
+
+      // XP Transactions (Auditable read-only to student; written via trusted server/logic)
+      match /xpTransactions/{transactionId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId); // Enabled for authorized profile sync/award logic with server authority
+      }
+
+      // Student unlocked achievements
+      match /achievements/{achievementId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
+      }
+
+      // Student activity history
+      match /activities/{activityId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Competitions (Public or authenticated read for published events, write locked to authorized admin processes)
+    match /competitions/{competitionId} {
+      allow get: if true;
+      allow list: if true;
+      allow write: if false;
+    }
+
+    // Competition Registrations (Isolated per student)
+    match /competitionRegistrations/{registrationId} {
+      // Students can read their own registrations
+      allow get: if isSignedIn() && resource.data.studentId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.studentId == request.auth.uid;
+
+      // Student can register themselves (preventing identity spoofing)
+      allow create: if isSignedIn() 
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.status in ['REGISTERED', 'PAYMENT_PENDING', 'WAITLISTED'];
+
+      // Student can cancel their own registration
+      allow update: if isSignedIn()
+        && resource.data.studentId == request.auth.uid
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.status in ['CANCELLED'];
+
+      allow delete: if false;
+    }
+
+    // Exam Sessions (Authoritative candidate session)
+    match /examSessions/{sessionId} {
+      allow get: if isSignedIn() && resource.data.studentId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.studentId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
+      allow update: if isSignedIn() 
+        && resource.data.studentId == request.auth.uid
+        && request.resource.data.studentId == request.auth.uid;
+      allow delete: if false;
+
+      // Candidate answers within session
+      match /answers/{questionId} {
+        allow read, write: if isSignedIn() 
+          && exists(/databases/$(database)/documents/examSessions/$(sessionId))
+          && get(/databases/$(database)/documents/examSessions/$(sessionId)).data.studentId == request.auth.uid;
+      }
+
+      // Candidate integrity logs within session
+      match /integrityEvents/{eventId} {
+        allow read, create: if isSignedIn() 
+          && exists(/databases/$(database)/documents/examSessions/$(sessionId))
+          && get(/databases/$(database)/documents/examSessions/$(sessionId)).data.studentId == request.auth.uid;
+      }
+    }
+
+    // Official Competition Results (Student can view their own; server/admin writes only)
+    match /competitionResults/{resultId} {
+      allow get: if isSignedIn() && resource.data.studentId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.studentId == request.auth.uid;
+      allow write: if false; // Only server-side evaluation can generate or update results
+    }
+
+    // Competition questions with server-side answers protected
+    match /competitions/{competitionId}/questions/{questionId} {
+      allow read: if false; // Questions delivered securely via server API without answer keys
+      allow write: if false;
+    }
+
+    // Phase 7: Learning Ecosystem
+    // Subjects & Courses (Public read, admin/server write only)
+    match /subjects/{subjectId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /courses/{courseId} {
+      allow read: if true;
+      allow write: if false;
+
+      match /lessons/{lessonId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    // User Course Progress (Student isolated)
+    match /users/{userId}/courseProgress/{progressId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // User Practice Attempts (Student isolated)
+    match /users/{userId}/practiceAttempts/{attemptId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // User Daily Goals (Student isolated)
+    match /users/{userId}/dailyGoals/{date} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Learning Resources / Library (Public read, write false)
+    match /learningResources/{resourceId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

@@ -1,0 +1,537 @@
+{
+  "$schema": "https://raw.githubusercontent.com/firebase/firebase-tools/master/schema/firestore-blueprint.json",
+  "entities": {
+    "users": {
+      "title": "User Profiles",
+      "description": "Registered students, teachers, and users of EduVerse",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "eduVerseId": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "teacher", "parent"] },
+        "country": { "type": "string" },
+        "countryCode": { "type": "string" },
+        "region": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "schoolVerificationStatus": { "type": "string", "enum": ["verified", "pending", "none"] },
+        "grade": { "type": "string" },
+        "educationSystem": { "type": "string" },
+        "eduverseScore": { "type": "number" },
+        "xp": { "type": "number" },
+        "level": { "type": "number" },
+        "currentStreak": { "type": "number" },
+        "longestStreak": { "type": "number" },
+        "lastActivityDate": { "type": "string" },
+        "streakFreezeCount": { "type": "number" },
+        "bio": { "type": "string" },
+        "targetGoals": { "type": "array" },
+        "privacySettings": { "type": "object" },
+        "profileCompleted": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "profileCompleted"]
+    },
+    "xpTransactions": {
+      "title": "XP Transactions",
+      "description": "Auditable transaction logs for XP awards and deductions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "type": { "type": "string" },
+        "amount": { "type": "number" },
+        "sourceId": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "studentId", "type", "amount", "description"]
+    },
+    "studentAchievements": {
+      "title": "Student Achievements",
+      "description": "Verified unlocked achievements for a student",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "achievementId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string" },
+        "category": { "type": "string" },
+        "rarity": { "type": "string" },
+        "unlockedAt": { "type": "string" },
+        "sourceId": { "type": "string" },
+        "rewardXp": { "type": "number" }
+      },
+      "required": ["id", "studentId", "achievementId", "name", "category", "rarity", "unlockedAt"]
+    },
+    "studentActivities": {
+      "title": "Student Activity Logs",
+      "description": "Real chronological student learning and competition activities",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "type": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "metadata": { "type": "string" }
+      },
+      "required": ["id", "studentId", "type", "title", "timestamp"]
+    },
+    "aiChats": {
+      "title": "AI Teacher Conversations",
+      "description": "Chat sessions with the EduVerse Gemini AI Teacher",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "title"]
+    },
+    "chatMessages": {
+      "title": "AI Chat Messages",
+      "description": "Individual messages between student and AI Teacher",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "assistant", "model"] },
+        "content": { "type": "string" },
+        "quickAction": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["role", "content"]
+    },
+    "competitions": {
+      "title": "EduVerse Competitions",
+      "description": "Global and national academic competitions, Olympiads, and challenges",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "subject": { "type": "string" },
+        "level": { "type": "string" },
+        "educationLevel": { "type": "string", "enum": ["SCHOOL", "UNIVERSITY"] },
+        "competitionType": { "type": "string" },
+        "competitionScope": { "type": "string", "enum": ["GLOBAL", "COUNTRY", "REGION", "SCHOOL", "UNIVERSITY"] },
+        "status": {
+          "type": "string",
+          "enum": [
+            "DRAFT",
+            "PUBLISHED",
+            "REGISTRATION_OPEN",
+            "REGISTRATION_CLOSED",
+            "LIVE",
+            "FINISHED",
+            "RESULTS_PROCESSING",
+            "RESULTS_PUBLISHED",
+            "CANCELLED"
+          ]
+        },
+        "visibility": { "type": "string", "enum": ["PUBLIC", "UNLISTED", "PRIVATE"] },
+        "countryScope": { "type": "string" },
+        "eligibleCountries": { "type": "array" },
+        "eligibleGrades": { "type": "array" },
+        "participantLimit": { "type": "number" },
+        "registeredCount": { "type": "number" },
+        "registrationStart": { "type": "string" },
+        "registrationEnd": { "type": "string" },
+        "startAt": { "type": "string" },
+        "endAt": { "type": "string" },
+        "durationMinutes": { "type": "number" },
+        "questionCount": { "type": "number" },
+        "scoringMode": { "type": "string" },
+        "entryFee": { "type": "number" },
+        "currency": { "type": "string" },
+        "paymentRequired": { "type": "boolean" },
+        "prizeInfo": { "type": "string" },
+        "rules": { "type": "array" },
+        "faq": { "type": "array" },
+        "organizerId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "category", "subject", "status", "visibility", "entryFee", "currency", "paymentRequired"]
+    },
+    "competitionRegistrations": {
+      "title": "Competition Registrations",
+      "description": "Verified student registrations for academic competitions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "competitionId": { "type": "string" },
+        "competitionTitle": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "studentEmail": { "type": "string" },
+        "countryCode": { "type": "string" },
+        "country": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "grade": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": [
+            "REGISTERED",
+            "CANCELLED",
+            "WAITLISTED",
+            "ELIGIBILITY_FAILED",
+            "PAYMENT_PENDING",
+            "PAYMENT_CONFIRMED"
+          ]
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["FREE", "PAYMENT_PENDING", "PAYMENT_CONFIRMED"]
+        },
+        "registeredAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "competitionId", "studentId", "status", "paymentStatus"]
+    },
+    "examSessions": {
+      "title": "Exam Sessions",
+      "description": "Server-authoritative competition exam sessions for candidates",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "competitionId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["IN_PROGRESS", "SUBMITTING", "SUBMITTED", "EXPIRED"]
+        },
+        "startedAt": { "type": "string" },
+        "serverStartTime": { "type": "number" },
+        "expiresAt": { "type": "number" },
+        "lastActivityAt": { "type": "string" },
+        "submittedAt": { "type": "string" },
+        "deviceMetadata": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "sessionId", "competitionId", "studentId", "status", "expiresAt"]
+    },
+    "examAnswers": {
+      "title": "Exam Session Answers",
+      "description": "Auto-saved candidate answers for an active session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "questionId": { "type": "string" },
+        "studentAnswer": { "type": "string" },
+        "isFlagged": { "type": "boolean" },
+        "lastSavedAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "sessionId", "questionId"]
+    },
+    "integrityEvents": {
+      "title": "Integrity Events",
+      "description": "Browser environment and exam integrity monitoring logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "FULLSCREEN_ENTER",
+            "FULLSCREEN_EXIT",
+            "TAB_HIDDEN",
+            "TAB_VISIBLE",
+            "WINDOW_BLUR",
+            "WINDOW_FOCUS",
+            "COPY_ATTEMPT",
+            "PASTE_ATTEMPT",
+            "CONTEXT_MENU",
+            "SHORTCUT_ATTEMPT",
+            "DEVTOOLS_SUSPECTED"
+          ]
+        },
+        "timestamp": { "type": "string" },
+        "metadata": { "type": "string" }
+      },
+      "required": ["id", "sessionId", "type", "timestamp"]
+    },
+    "competitionResults": {
+      "title": "Official Competition Results",
+      "description": "Server-scored official results and performance breakdowns",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "competitionId": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "score": { "type": "number" },
+        "totalPoints": { "type": "number" },
+        "percentage": { "type": "number" },
+        "correctCount": { "type": "number" },
+        "incorrectCount": { "type": "number" },
+        "unansweredCount": { "type": "number" },
+        "status": { "type": "string", "enum": ["VERIFIED", "FINALIZED", "FLAGGED_REVIEW"] },
+        "submittedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "competitionId", "sessionId", "studentId", "score", "totalPoints", "percentage", "status"]
+    },
+    "competitionQuestions": {
+      "title": "Competition Questions",
+      "description": "Official question bank for competitions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "competitionId": { "type": "string" },
+        "questionNumber": { "type": "number" },
+        "type": {
+          "type": "string",
+          "enum": ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "SHORT_ANSWER", "NUMERIC"]
+        },
+        "questionText": { "type": "string" },
+        "options": { "type": "array" },
+        "points": { "type": "number" },
+        "difficulty": { "type": "string" },
+        "subject": { "type": "string" },
+        "media": { "type": "string" },
+        "order": { "type": "number" },
+        "active": { "type": "boolean" },
+        "allowCalculator": { "type": "boolean" }
+      },
+      "required": ["id", "competitionId", "questionNumber", "type", "questionText", "points"]
+    },
+    "subjects": {
+      "title": "Learning Subjects",
+      "description": "Academic subjects offered in the EduVerse ecosystem",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "courseCount": { "type": "number" },
+        "displayOrder": { "type": "number" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "name", "slug", "icon", "color"]
+    },
+    "courses": {
+      "title": "Learning Courses",
+      "description": "Comprehensive academic courses across subjects and grade levels",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "difficulty": { "type": "string", "enum": ["BEGINNER", "INTERMEDIATE", "ADVANCED", "OLYMPIAD"] },
+        "grade": { "type": "string" },
+        "educationLevel": { "type": "string", "enum": ["MIDDLE_SCHOOL", "HIGH_SCHOOL", "UNIVERSITY", "ALL"] },
+        "curriculum": { "type": "string" },
+        "countryScope": { "type": "string" },
+        "estimatedDurationHours": { "type": "number" },
+        "totalLessons": { "type": "number" },
+        "xpTotal": { "type": "number" },
+        "thumbnailUrl": { "type": "string" },
+        "featured": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "subjectId", "title", "difficulty", "grade", "totalLessons", "xpTotal"]
+    },
+    "lessons": {
+      "title": "Course Lessons",
+      "description": "Structured modular lessons with theory, formulas, diagrams, and checkpoints",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "courseId": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "order": { "type": "number" },
+        "durationMinutes": { "type": "number" },
+        "lessonType": { "type": "string", "enum": ["THEORY", "WORKED_EXAMPLES", "PRACTICE_LAB", "AI_INTERACTIVE", "EXAM_PREP"] },
+        "xpReward": { "type": "number" },
+        "contentBlocks": { "type": "array" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "courseId", "title", "order", "durationMinutes", "lessonType", "xpReward"]
+    },
+    "studentCourseProgress": {
+      "title": "Student Course Progress",
+      "description": "Individual student completion progress in a course",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "courseTitle": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "completedLessonIds": { "type": "array" },
+        "currentLessonId": { "type": "string" },
+        "progressPercent": { "type": "number" },
+        "startedAt": { "type": "string" },
+        "lastActivityAt": { "type": "string" },
+        "completedAt": { "type": "string" },
+        "totalLessons": { "type": "number" }
+      },
+      "required": ["id", "studentId", "courseId", "progressPercent"]
+    },
+    "practiceAttempts": {
+      "title": "Practice Attempts",
+      "description": "Evaluated practice quiz sessions for students",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "topic": { "type": "string" },
+        "score": { "type": "number" },
+        "totalQuestions": { "type": "number" },
+        "percentage": { "type": "number" },
+        "correctCount": { "type": "number" },
+        "xpEarned": { "type": "number" },
+        "timeSpentSeconds": { "type": "number" },
+        "completedAt": { "type": "string" }
+      },
+      "required": ["id", "studentId", "score", "totalQuestions", "percentage", "completedAt"]
+    },
+    "dailyGoals": {
+      "title": "Daily Goals",
+      "description": "Daily study time and activity targets for students",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "targetMinutes": { "type": "number" },
+        "todayLearnedMinutes": { "type": "number" },
+        "todayActivitiesCount": { "type": "number" },
+        "completedActivitiesToday": { "type": "number" },
+        "lastActiveDate": { "type": "string" }
+      },
+      "required": ["studentId", "targetMinutes", "todayLearnedMinutes", "lastActiveDate"]
+    },
+    "learningResources": {
+      "title": "Learning Resources",
+      "description": "Academic library formulas, study guides, and past competition papers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["FORMULA_SHEET", "CHEATSHEET", "WORKED_SOLUTIONS", "PAST_PAPER", "TEXTBOOK_SUMMARY"] },
+        "subjectId": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "gradeLevel": { "type": "string" },
+        "format": { "type": "string" },
+        "url": { "type": "string" },
+        "downloadCount": { "type": "number" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "title", "type", "subjectId", "format"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "Individual user profile by UID"
+    },
+    "/users/{userId}/aiChats/{chatId}": {
+      "schema": "aiChats",
+      "description": "AI Teacher conversation sessions for a student"
+    },
+    "/users/{userId}/aiChats/{chatId}/messages/{messageId}": {
+      "schema": "chatMessages",
+      "description": "Individual messages in an AI chat session"
+    },
+    "/competitions/{competitionId}": {
+      "schema": "competitions",
+      "description": "Published academic competitions"
+    },
+    "/competitionRegistrations/{registrationId}": {
+      "schema": "competitionRegistrations",
+      "description": "Student competition registrations"
+    },
+    "/examSessions/{sessionId}": {
+      "schema": "examSessions",
+      "description": "Active and submitted exam sessions"
+    },
+    "/examSessions/{sessionId}/answers/{questionId}": {
+      "schema": "examAnswers",
+      "description": "Candidate answers for an exam session"
+    },
+    "/examSessions/{sessionId}/integrityEvents/{eventId}": {
+      "schema": "integrityEvents",
+      "description": "Integrity and security event logs"
+    },
+    "/users/{userId}/xpTransactions/{transactionId}": {
+      "schema": "xpTransactions",
+      "description": "Auditable XP transactions for a user"
+    },
+    "/users/{userId}/achievements/{achievementId}": {
+      "schema": "studentAchievements",
+      "description": "Student unlocked achievements"
+    },
+    "/users/{userId}/activities/{activityId}": {
+      "schema": "studentActivities",
+      "description": "Student activity chronological log"
+    },
+    "/competitionResults/{resultId}": {
+      "schema": "competitionResults",
+      "description": "Official server-evaluated competition results"
+    },
+    "/competitions/{competitionId}/questions/{questionId}": {
+      "schema": "competitionQuestions",
+      "description": "Competition questions"
+    },
+    "/subjects/{subjectId}": {
+      "schema": "subjects",
+      "description": "Active academic subjects"
+    },
+    "/courses/{courseId}": {
+      "schema": "courses",
+      "description": "Academic courses"
+    },
+    "/courses/{courseId}/lessons/{lessonId}": {
+      "schema": "lessons",
+      "description": "Course lessons"
+    },
+    "/users/{userId}/courseProgress/{progressId}": {
+      "schema": "studentCourseProgress",
+      "description": "Student course completion progress"
+    },
+    "/users/{userId}/practiceAttempts/{attemptId}": {
+      "schema": "practiceAttempts",
+      "description": "Student practice quiz attempts"
+    },
+    "/users/{userId}/dailyGoals/{date}": {
+      "schema": "dailyGoals",
+      "description": "Daily student study targets and metrics"
+    },
+    "/learningResources/{resourceId}": {
+      "schema": "learningResources",
+      "description": "Academic resources and library"
+    }
+  }
+}

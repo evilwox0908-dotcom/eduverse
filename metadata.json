@@ -1,0 +1,6 @@
+{
+  "name": "EduVerse",
+  "description": "Global education technology platform where students learn with AI, compete in academic challenges, and prove themselves worldwide.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
