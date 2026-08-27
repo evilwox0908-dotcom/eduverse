@@ -450,6 +450,91 @@
         "active": { "type": "boolean" }
       },
       "required": ["id", "title", "type", "subjectId", "format"]
+    },
+    "questionBank": {
+      "title": "Authoritative Master Question Bank",
+      "description": "Multi-subject academic question bank items across grades 5-12 with difficulty, options, and solutions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "questionId": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "grade": { "type": "string" },
+        "topic": { "type": "string" },
+        "difficulty": { "type": "string", "enum": ["Easy", "Medium", "Hard", "FOUNDATIONAL", "INTERMEDIATE", "OLYMPIAD", "ADVANCED"] },
+        "questionText": { "type": "string" },
+        "options": { "type": "array" },
+        "correctAnswer": { "type": "string" },
+        "explanation": { "type": "string" },
+        "points": { "type": "number" },
+        "language": { "type": "string" },
+        "status": { "type": "string", "enum": ["Draft", "Review", "Approved", "Archived"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "subjectId", "grade", "difficulty", "questionText", "points", "status"]
+    },
+    "generatedTests": {
+      "title": "Generated Test Configurations",
+      "description": "Server-generated multi-subject exams built from approved Question Bank items",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "grade": { "type": "string" },
+        "numberOfQuestions": { "type": "number" },
+        "difficultyDistribution": { "type": "object" },
+        "timeLimitMinutes": { "type": "number" },
+        "points": { "type": "number" },
+        "language": { "type": "string" },
+        "competitionType": { "type": "string" },
+        "selectedQuestionIds": { "type": "array" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "subjectId", "grade", "numberOfQuestions", "timeLimitMinutes"]
+    },
+    "schools": {
+      "title": "Registered School Institutions",
+      "description": "Verified and pending educational institutions with automatic domain verification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "country": { "type": "string" },
+        "stateProvince": { "type": "string" },
+        "city": { "type": "string" },
+        "website": { "type": "string" },
+        "officialEmail": { "type": "string" },
+        "administrator": { "type": "string" },
+        "schoolType": { "type": "string" },
+        "grades": { "type": "array" },
+        "verificationStatus": { "type": "string", "enum": ["VERIFIED", "PENDING", "REVIEW_REQUIRED", "REJECTED"] },
+        "autoVerified": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "country", "city", "officialEmail", "verificationStatus"]
+    },
+    "schoolAssociations": {
+      "title": "Student-School Affiliations",
+      "description": "Association links between verified students and registered schools",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "studentEmail": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "grade": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "VERIFIED", "REJECTED"] },
+        "requestedAt": { "type": "string" },
+        "verifiedAt": { "type": "string" }
+      },
+      "required": ["id", "studentId", "schoolId", "status"]
     }
   },
   "firestore": {
@@ -504,6 +589,22 @@
     "/competitions/{competitionId}/questions/{questionId}": {
       "schema": "competitionQuestions",
       "description": "Competition questions"
+    },
+    "/questionBank/{questionId}": {
+      "schema": "questionBank",
+      "description": "Authoritative Master Question Bank for all subjects and grades"
+    },
+    "/generatedTests/{testId}": {
+      "schema": "generatedTests",
+      "description": "Generated test structures from approved Question Bank"
+    },
+    "/schools/{schoolId}": {
+      "schema": "schools",
+      "description": "Registered and verified educational institutions"
+    },
+    "/schoolAssociations/{associationId}": {
+      "schema": "schoolAssociations",
+      "description": "Student-school association links"
     },
     "/subjects/{subjectId}": {
       "schema": "subjects",

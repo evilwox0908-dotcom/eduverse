@@ -10,9 +10,11 @@ import {
   User,
   Settings,
   LogOut,
+  Shield,
 } from 'lucide-react';
 import { DashboardView } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { EduVerseLogo } from '../ui/EduVerseLogo';
 
 interface SidebarProps {
   currentView: DashboardView;
@@ -25,7 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectView,
   onLogout,
 }) => {
-  const { userProfile, user } = useAuth();
+  const { userProfile, user, isAdmin } = useAuth();
 
   const navItems: Array<{
     id: DashboardView;
@@ -33,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     icon: React.ComponentType<{ className?: string }>;
     badge?: string;
     highlight?: boolean;
+    adminOnly?: boolean;
   }> = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'learn', label: 'Learn', icon: BookOpen },
@@ -41,6 +44,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'universities', label: 'Universities', icon: GraduationCap },
     { id: 'events', label: 'Events', icon: Calendar },
     { id: 'ai', label: 'AI Teacher', icon: Sparkles, highlight: true },
+    ...(isAdmin
+      ? [
+          {
+            id: 'admin' as DashboardView,
+            label: 'Admin Center',
+            icon: Shield,
+            badge: 'FOUNDER',
+            highlight: false,
+          },
+        ]
+      : []),
   ];
 
   const bottomItems: Array<{
@@ -56,12 +70,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="hidden lg:flex flex-col justify-between w-64 h-[calc(100vh-2rem)] sticky top-4 rounded-3xl glass-card border border-white/80 p-4 shadow-xl shadow-blue-900/5 bg-white/70 backdrop-blur-xl z-20">
       {/* Brand Header */}
       <div>
-        <div className="flex items-center gap-3 px-3 py-3 mb-6 border-b border-slate-100/80">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-700 via-blue-600 to-sky-400 flex items-center justify-center text-white font-black text-xl shadow-md shadow-blue-600/30">
-            E
-          </div>
+        <div className="flex items-center gap-3 px-2 py-3 mb-6 border-b border-slate-100/80">
+          <EduVerseLogo size="md" />
           <div>
-            <span className="text-lg font-black tracking-tight text-slate-900 flex items-center gap-1.5">
+            <span className="text-base font-black tracking-tight text-slate-900 flex items-center gap-1.5">
               EduVerse
               <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
             </span>
@@ -76,6 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
+            const isAdminItem = item.id === 'admin';
 
             return (
               <button
@@ -84,7 +97,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => onSelectView(item.id)}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-sm font-semibold transition-all duration-200 ${
                   isActive
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
+                    ? isAdminItem
+                      ? 'bg-slate-900 text-white shadow-md shadow-slate-900/30'
+                      : 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
+                    : isAdminItem
+                    ? 'text-amber-700 bg-amber-50 hover:bg-amber-100/80 border border-amber-200/80'
                     : item.highlight
                     ? 'text-blue-700 bg-blue-50/80 hover:bg-blue-100/80 border border-blue-200/60'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
@@ -95,6 +112,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className={`w-4 h-4 ${
                       isActive
                         ? 'text-white'
+                        : isAdminItem
+                        ? 'text-amber-600'
                         : item.highlight
                         ? 'text-blue-600'
                         : 'text-slate-500'
@@ -108,6 +127,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
                       isActive
                         ? 'bg-white/20 text-white'
+                        : isAdminItem
+                        ? 'bg-amber-200 text-amber-900'
                         : 'bg-blue-100 text-blue-700'
                     }`}
                   >
@@ -173,13 +194,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-slate-800 truncate">
-                {userProfile?.firstName
-                  ? `${userProfile.firstName} ${userProfile.lastName || ''}`
-                  : user?.displayName || 'Student'}
-              </p>
+              <div className="flex items-center gap-1">
+                <p className="text-xs font-bold text-slate-800 truncate">
+                  {userProfile?.firstName
+                    ? `${userProfile.firstName} ${userProfile.lastName || ''}`
+                    : user?.displayName || 'Student'}
+                </p>
+                {isAdmin && (
+                  <Shield className="w-3 h-3 text-amber-500 shrink-0" />
+                )}
+              </div>
               <p className="text-[10px] text-slate-400 truncate">
-                {userProfile?.schoolName || userProfile?.country || 'EduVerse Scholar'}
+                {isAdmin ? 'System Administrator' : (userProfile?.schoolName || userProfile?.country || 'EduVerse Scholar')}
               </p>
             </div>
           </div>

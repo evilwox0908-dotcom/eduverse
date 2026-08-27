@@ -35,7 +35,8 @@ type PageView =
   | 'universities'
   | 'events'
   | 'profile'
-  | 'settings';
+  | 'settings'
+  | 'admin';
 
 function AppContent() {
   const { user, userProfile, loading } = useAuth();
@@ -107,6 +108,7 @@ function AppContent() {
         'events',
         'profile',
         'settings',
+        'admin',
       ];
 
       if (validViews.includes(rawHash as PageView)) {
@@ -140,6 +142,7 @@ function AppContent() {
         'events',
         'profile',
         'settings',
+        'admin',
       ];
 
       if (protectedViews.includes(currentView)) {
@@ -319,7 +322,8 @@ function AppContent() {
         currentView === 'universities' ||
         currentView === 'events' ||
         currentView === 'profile' ||
-        currentView === 'settings') && (
+        currentView === 'settings' ||
+        currentView === 'admin') && (
         <Dashboard initialView={currentView === 'dashboard' ? 'home' : (currentView as DashboardView)} />
       )}
 

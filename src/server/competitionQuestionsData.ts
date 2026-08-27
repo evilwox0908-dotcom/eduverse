@@ -324,6 +324,10 @@ export const SERVER_COMPETITION_QUESTIONS: Record<string, ServerQuestion[]> = {
   ],
 };
 
+export function registerCompetitionQuestions(competitionId: string, questions: ServerQuestion[]): void {
+  SERVER_COMPETITION_QUESTIONS[competitionId] = questions;
+}
+
 /**
  * Returns list of sanitized questions for a given competition.
  * Strips out correctAnswer, explanation, and grading secrets.

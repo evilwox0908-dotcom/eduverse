@@ -19,11 +19,13 @@ import { DailyGoalModal } from '../components/learn/DailyGoalModal';
 interface LearnPageProps {
   onSelectView: (view: DashboardView) => void;
   onLaunchAIWithTopic: (topic: string, actionType?: string) => void;
+  onImmersiveModeChange?: (isImmersive: boolean) => void;
 }
 
 export const LearnPage: React.FC<LearnPageProps> = ({
   onSelectView,
   onLaunchAIWithTopic,
+  onImmersiveModeChange,
 }) => {
   const { userProfile, user } = useAuth();
   const studentId = user?.uid || userProfile?.id || 'demo_student';
@@ -32,6 +34,12 @@ export const LearnPage: React.FC<LearnPageProps> = ({
   const [activeTab, setActiveTab] = useState<'courses' | 'practice' | 'library'>('courses');
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (onImmersiveModeChange) {
+      onImmersiveModeChange(Boolean(selectedCourseId && selectedLessonId));
+    }
+  }, [selectedCourseId, selectedLessonId, onImmersiveModeChange]);
 
   // Filter & Search states
   const [subjects, setSubjects] = useState<Subject[]>([]);

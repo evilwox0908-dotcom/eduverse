@@ -3,6 +3,8 @@ import {
   User,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
@@ -15,13 +17,22 @@ import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firest
 import { auth, googleProvider, db, getUserProfile } from '../services/firebase';
 import { UserProfile, OnboardingState } from '../types';
 
+export const FOUNDER_ADMIN_EMAIL = 'shohruhabdukarimov05@gmail.com';
+
 interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
+  isAdmin: boolean;
   loading: boolean;
-  loginWithGoogle: () => Promise<{ isNewUser: boolean; profile: UserProfile | null }>;
+  loginWithGoogle: (useRedirectFallback?: boolean) => Promise<{ isNewUser: boolean; profile: UserProfile | null }>;
   loginWithEmail: (email: string, pass: string) => Promise<UserProfile | null>;
-  signupWithEmail: (firstName: string, lastName: string, email: string, pass: string) => Promise<void>;
+  signupWithEmail: (
+    firstName: string,
+    lastName: string,
+    email: string,
+    pass: string,
+    additionalData?: { country?: string; dateOfBirth?: string }
+  ) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   verifyResetCode: (code: string) => Promise<string>;
   confirmPasswordResetWithCode: (code: string, newPass: string) => Promise<void>;
@@ -58,7 +69,115 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // Helper to ensure profile exists for any authenticated Firebase user
+  const syncOrCreateUserProfile = async (
+    authenticatedUser: User,
+    extraData?: Partial<UserProfile>
+  ): Promise<{ isNewUser: boolean; profile: UserProfile | null }> => {
+    try {
+      const userDocRef = doc(db, 'users', authenticatedUser.uid);
+      const snap = await getDoc(userDocRef);
+
+      if (!snap.exists()) {
+        const displayName = authenticatedUser.displayName || '';
+        const nameParts = displayName.split(' ');
+        const firstName = extraData?.firstName || nameParts[0] || '';
+        const lastName = extraData?.lastName || nameParts.slice(1).join(' ') || '';
+        const evId = generateRandomEVCode();
+
+        const isFounder = (authenticatedUser.email || extraData?.email || '').toLowerCase() === FOUNDER_ADMIN_EMAIL.toLowerCase();
+        const assignedRole: 'student' | 'teacher' | 'parent' | 'admin' = isFounder ? 'admin' : (extraData?.role || 'student');
+
+        const initialData: Partial<UserProfile> = {
+          uid: authenticatedUser.uid,
+          eduVerseId: evId,
+          firstName,
+          lastName,
+          displayName: displayName || `${firstName} ${lastName}`.trim(),
+          email: authenticatedUser.email || extraData?.email || '',
+          photoURL: authenticatedUser.photoURL || '',
+          role: assignedRole,
+          country: extraData?.country || '',
+          countryCode: extraData?.countryCode || '',
+          region: extraData?.region || '',
+          schoolName: isFounder ? 'EduVerse Global HQ' : (extraData?.schoolName || ''),
+          schoolVerificationStatus: isFounder ? 'verified' : 'pending',
+          grade: isFounder ? 'Administrator' : (extraData?.grade || ''),
+          educationSystem: extraData?.educationSystem || '',
+          dateOfBirth: extraData?.dateOfBirth || '',
+          eduverseScore: 0,
+          xp: 0,
+          level: 1,
+          profileCompleted: isFounder ? true : false,
+          privacySettings: {
+            isPublicProfile: false,
+            showSchool: true,
+            showCountry: true,
+            showAchievements: true,
+            showCompetitionResults: true,
+          },
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+
+        await setDoc(userDocRef, initialData, { merge: true });
+
+        // Synchronize with server cache
+        try {
+          await fetch(`/api/students/${authenticatedUser.uid}/profile-sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(initialData),
+          });
+        } catch (e) {
+          console.warn('Backend profile sync error:', e);
+        }
+
+        const profile = await fetchProfile(authenticatedUser.uid);
+        return { isNewUser: isFounder ? false : true, profile };
+      } else {
+        let profile = snap.data() as UserProfile;
+        
+        // If this is the founder admin account, ensure role is 'admin'
+        if (
+          authenticatedUser.email?.toLowerCase() === FOUNDER_ADMIN_EMAIL.toLowerCase() &&
+          profile.role !== 'admin'
+        ) {
+          profile.role = 'admin';
+          await updateDoc(userDocRef, { role: 'admin', updatedAt: serverTimestamp() });
+          try {
+            await fetch(`/api/students/${authenticatedUser.uid}/profile-sync`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ role: 'admin' }),
+            });
+          } catch (e) {
+            console.warn('Admin profile sync notice:', e);
+          }
+        }
+
+        setUserProfile(profile);
+        return { isNewUser: !profile.profileCompleted, profile };
+      }
+    } catch (error) {
+      console.error('Error in syncOrCreateUserProfile:', error);
+      throw error;
+    }
+  };
+
   useEffect(() => {
+    // 1. Process any pending redirect auth result
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result && result.user) {
+          await syncOrCreateUserProfile(result.user);
+        }
+      })
+      .catch((err) => {
+        console.warn('Redirect auth check notice:', err);
+      });
+
+    // 2. Listen to active auth state
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -72,74 +191,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => unsubscribe();
   }, []);
 
-  const loginWithGoogle = async (): Promise<{ isNewUser: boolean; profile: UserProfile | null }> => {
+  const loginWithGoogle = async (
+    useRedirectFallback: boolean = false
+  ): Promise<{ isNewUser: boolean; profile: UserProfile | null }> => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const authenticatedUser = result.user;
-      
-      // Check if profile exists in Firestore
-      const userDocRef = doc(db, 'users', authenticatedUser.uid);
-      const snap = await getDoc(userDocRef);
+      if (useRedirectFallback) {
+        await signInWithRedirect(auth, googleProvider);
+        return { isNewUser: false, profile: null };
+      }
 
-      if (!snap.exists()) {
-        // Parse names from displayName
-        const displayName = authenticatedUser.displayName || '';
-        const nameParts = displayName.split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
-
-        const evId = generateRandomEVCode();
-
-        const initialData: Partial<UserProfile> = {
-          uid: authenticatedUser.uid,
-          eduVerseId: evId,
-          firstName,
-          lastName,
-          displayName: displayName || `${firstName} ${lastName}`.trim(),
-          email: authenticatedUser.email || '',
-          photoURL: authenticatedUser.photoURL || '',
-          role: 'student',
-          country: '',
-          countryCode: '',
-          region: '',
-          schoolName: '',
-          schoolVerificationStatus: 'pending',
-          grade: '',
-          educationSystem: '',
-          eduverseScore: 0,
-          xp: 0,
-          level: 1,
-          profileCompleted: false,
-          privacySettings: {
-            isPublicProfile: false,
-            showSchool: true,
-            showCountry: true,
-            showAchievements: true,
-            showCompetitionResults: true,
-          },
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
-
-        await setDoc(userDocRef, initialData);
-
-        // Also sync profile with backend store
-        try {
-          await fetch(`/api/students/${authenticatedUser.uid}/profile-sync`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(initialData),
-          });
-        } catch (e) {
-          console.warn('Backend profile sync error:', e);
+      try {
+        const result = await signInWithPopup(auth, googleProvider);
+        return await syncOrCreateUserProfile(result.user);
+      } catch (popupError: any) {
+        // If popup was blocked by browser policies, seamlessly attempt redirect
+        if (popupError?.code === 'auth/popup-blocked') {
+          console.warn('Popup blocked by browser, falling back to redirect...');
+          await signInWithRedirect(auth, googleProvider);
+          return { isNewUser: false, profile: null };
         }
-
-        const profile = await fetchProfile(authenticatedUser.uid);
-        return { isNewUser: true, profile };
-      } else {
-        const profile = snap.data() as UserProfile;
-        setUserProfile(profile);
-        return { isNewUser: !profile.profileCompleted, profile };
+        throw popupError;
       }
     } catch (error) {
       console.error('Google login error:', error);
@@ -150,7 +221,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const loginWithEmail = async (email: string, pass: string): Promise<UserProfile | null> => {
     try {
       const result = await signInWithEmailAndPassword(auth, email.trim(), pass);
-      return await fetchProfile(result.user.uid);
+      const profileResult = await syncOrCreateUserProfile(result.user);
+      return profileResult.profile;
     } catch (error) {
       console.error('Email login error:', error);
       throw error;
@@ -161,7 +233,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     firstName: string,
     lastName: string,
     email: string,
-    pass: string
+    pass: string,
+    additionalData?: { country?: string; dateOfBirth?: string }
   ): Promise<void> => {
     try {
       const result = await createUserWithEmailAndPassword(auth, email.trim(), pass);
@@ -174,7 +247,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const evId = generateRandomEVCode();
 
-      // Create initial Firestore doc
+      // Create initial Firestore user profile
       const userDocRef = doc(db, 'users', newUser.uid);
       const initialData: Partial<UserProfile> = {
         uid: newUser.uid,
@@ -184,13 +257,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         displayName: `${firstName.trim()} ${lastName.trim()}`.trim(),
         email: newUser.email || email.trim(),
         role: 'student',
-        country: '',
+        country: additionalData?.country || '',
         countryCode: '',
         region: '',
         schoolName: '',
         schoolVerificationStatus: 'pending',
         grade: '',
         educationSystem: '',
+        dateOfBirth: additionalData?.dateOfBirth || '',
         eduverseScore: 0,
         xp: 0,
         level: 1,
@@ -206,9 +280,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updatedAt: serverTimestamp(),
       };
 
-      await setDoc(userDocRef, initialData);
+      await setDoc(userDocRef, initialData, { merge: true });
 
-      // Also sync profile with backend store
+      // Synchronize with server cache
       try {
         await fetch(`/api/students/${newUser.uid}/profile-sync`, {
           method: 'POST',
@@ -322,11 +396,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await fetchProfile(user.uid);
   };
 
+  const isAdmin = Boolean(
+    user && (user.email?.toLowerCase() === FOUNDER_ADMIN_EMAIL.toLowerCase() || userProfile?.role === 'admin')
+  );
+
   return (
     <AuthContext.Provider
       value={{
         user,
         userProfile,
+        isAdmin,
         loading,
         loginWithGoogle,
         loginWithEmail,
@@ -351,4 +430,3 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
-

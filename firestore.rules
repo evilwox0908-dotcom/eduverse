@@ -10,6 +10,15 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'shohruhabdukarimov05@gmail.com' ||
+        request.auth.token.admin == true ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
     // Default safety deny
     match /{document=**} {
       allow read, write: if false;
@@ -17,9 +26,23 @@ service cloud.firestore {
 
     // User profiles
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create, update: if isOwner(userId);
-      allow delete: if false;
+      // Students can read their own profile, admins can read any profile
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // User creation during auth onboarding
+      allow create: if isOwner(userId) && (
+        !('role' in request.resource.data) ||
+        request.resource.data.role == 'student' ||
+        (request.auth.token.email == 'shohruhabdukarimov05@gmail.com' && request.resource.data.role == 'admin')
+      );
+
+      // Updates: Ordinary users can only update safe fields; cannot self-promote to admin or fabricate ranks
+      allow update: if (
+        isOwner(userId) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'eduverseScore', 'schoolVerificationStatus']))
+      ) || isAdmin();
+
+      allow delete: if isAdmin();
 
       // Private AI Teacher chats subcollection
       match /aiChats/{chatId} {
@@ -31,125 +54,160 @@ service cloud.firestore {
         }
       }
 
-      // XP Transactions (Auditable read-only to student; written via trusted server/logic)
+      // XP Transactions (Auditable read-only to student; written via trusted server/logic/owner)
       match /xpTransactions/{transactionId} {
-        allow read: if isOwner(userId);
-        allow write: if isOwner(userId); // Enabled for authorized profile sync/award logic with server authority
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
       }
 
       // Student unlocked achievements
       match /achievements/{achievementId} {
-        allow read: if isOwner(userId);
-        allow write: if isOwner(userId);
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
       }
 
       // Student activity history
       match /activities/{activityId} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      // User Course Progress (Student isolated)
+      match /courseProgress/{progressId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      // User Practice Attempts (Student isolated)
+      match /practiceAttempts/{attemptId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      // User Daily Goals (Student isolated)
+      match /dailyGoals/{date} {
+        allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
-    // Competitions (Public or authenticated read for published events, write locked to authorized admin processes)
-    match /competitions/{competitionId} {
-      allow get: if true;
-      allow list: if true;
-      allow write: if false;
+    // Schools Directory (Public/authenticated read, users can register pending, admin can manage/verify)
+    match /schools/{schoolId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
-    // Competition Registrations (Isolated per student)
-    match /competitionRegistrations/{registrationId} {
-      // Students can read their own registrations
-      allow get: if isSignedIn() && resource.data.studentId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.studentId == request.auth.uid;
+    // Audit Logs (Strict Admin-only read, admin/server create, immutable)
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false; // Immutable audit trail
+    }
 
-      // Student can register themselves (preventing identity spoofing)
+    // Certificates (Public read for authenticity verification, write locked to Admin/System)
+    match /certificates/{certificateId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // System Settings (Public read for operational config, admin write)
+    match /system_settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Competitions (Public read for published events, write locked to authorized admin processes)
+    match /competitions/{competitionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Competition Registrations (Isolated per student or viewable by Admin)
+    match /competitionRegistrations/{registrationId} {
+      allow get, list: if (isSignedIn() && resource.data.studentId == request.auth.uid) || isAdmin();
+
       allow create: if isSignedIn() 
         && request.resource.data.studentId == request.auth.uid
         && request.resource.data.status in ['REGISTERED', 'PAYMENT_PENDING', 'WAITLISTED'];
 
-      // Student can cancel their own registration
-      allow update: if isSignedIn()
+      allow update: if (
+        isSignedIn()
         && resource.data.studentId == request.auth.uid
         && request.resource.data.studentId == request.auth.uid
-        && request.resource.data.status in ['CANCELLED'];
+        && request.resource.data.status in ['CANCELLED']
+      ) || isAdmin();
 
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     // Exam Sessions (Authoritative candidate session)
     match /examSessions/{sessionId} {
-      allow get: if isSignedIn() && resource.data.studentId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.studentId == request.auth.uid;
+      allow get, list: if (isSignedIn() && resource.data.studentId == request.auth.uid) || isAdmin();
       allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
-      allow update: if isSignedIn() 
+      allow update: if (isSignedIn() 
         && resource.data.studentId == request.auth.uid
-        && request.resource.data.studentId == request.auth.uid;
-      allow delete: if false;
+        && request.resource.data.studentId == request.auth.uid) || isAdmin();
+      allow delete: if isAdmin();
 
-      // Candidate answers within session
       match /answers/{questionId} {
-        allow read, write: if isSignedIn() 
+        allow read, write: if (isSignedIn() 
           && exists(/databases/$(database)/documents/examSessions/$(sessionId))
-          && get(/databases/$(database)/documents/examSessions/$(sessionId)).data.studentId == request.auth.uid;
+          && get(/databases/$(database)/documents/examSessions/$(sessionId)).data.studentId == request.auth.uid) || isAdmin();
       }
 
-      // Candidate integrity logs within session
       match /integrityEvents/{eventId} {
-        allow read, create: if isSignedIn() 
+        allow read, create: if (isSignedIn() 
           && exists(/databases/$(database)/documents/examSessions/$(sessionId))
-          && get(/databases/$(database)/documents/examSessions/$(sessionId)).data.studentId == request.auth.uid;
+          && get(/databases/$(database)/documents/examSessions/$(sessionId)).data.studentId == request.auth.uid) || isAdmin();
       }
     }
 
-    // Official Competition Results (Student can view their own; server/admin writes only)
+    // Official Competition Results (Student views own, admin views all, write locked to admin/system)
     match /competitionResults/{resultId} {
-      allow get: if isSignedIn() && resource.data.studentId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.studentId == request.auth.uid;
-      allow write: if false; // Only server-side evaluation can generate or update results
+      allow get, list: if (isSignedIn() && resource.data.studentId == request.auth.uid) || isAdmin();
+      allow write: if isAdmin();
     }
 
     // Competition questions with server-side answers protected
     match /competitions/{competitionId}/questions/{questionId} {
-      allow read: if false; // Questions delivered securely via server API without answer keys
-      allow write: if false;
+      allow read, write: if isAdmin();
     }
 
-    // Phase 7: Learning Ecosystem
-    // Subjects & Courses (Public read, admin/server write only)
+    // Master Question Bank (Admin full control; sanitized versions served via server endpoints)
+    match /questionBank/{questionId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Generated Tests (Public/student read for published, admin write)
+    match /generatedTests/{testId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Student School Associations
+    match /schoolAssociations/{associationId} {
+      allow read: if (isSignedIn() && resource.data.studentId == request.auth.uid) || isAdmin();
+      allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Learning Ecosystem: Subjects & Courses (Public read, admin write)
     match /subjects/{subjectId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
 
     match /courses/{courseId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
 
       match /lessons/{lessonId} {
         allow read: if true;
-        allow write: if false;
+        allow write: if isAdmin();
       }
     }
 
-    // User Course Progress (Student isolated)
-    match /users/{userId}/courseProgress/{progressId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    // User Practice Attempts (Student isolated)
-    match /users/{userId}/practiceAttempts/{attemptId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    // User Daily Goals (Student isolated)
-    match /users/{userId}/dailyGoals/{date} {
-      allow read, write: if isOwner(userId);
-    }
-
-    // Learning Resources / Library (Public read, write false)
+    // Learning Resources / Library (Public read, admin write)
     match /learningResources/{resourceId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
   }
 }

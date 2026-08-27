@@ -12,6 +12,7 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  Shield,
 } from 'lucide-react';
 import { UserProfile, ProfileCompletionInfo } from '../../types';
 import { Profile3DScene } from './Profile3DScene';
@@ -91,6 +92,13 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
                 {fullName}
               </h1>
+
+              {profile?.role === 'admin' && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-800 border border-amber-500/30 text-xs font-bold">
+                  <Shield className="w-3.5 h-3.5 text-amber-600" />
+                  FOUNDER ADMIN
+                </span>
+              )}
 
               {/* EduVerse ID Badge */}
               <button

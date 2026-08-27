@@ -7,6 +7,8 @@ import dotenv from 'dotenv';
 import {
   getSanitizedQuestions,
   evaluateStudentSubmission,
+  SERVER_COMPETITION_QUESTIONS,
+  registerCompetitionQuestions,
 } from './src/server/competitionQuestionsData';
 import {
   INITIAL_SUBJECTS,
@@ -16,6 +18,10 @@ import {
   INITIAL_RESOURCES,
   evaluatePracticeAttempt,
 } from './src/server/learningData';
+import { INITIAL_MASTER_QUESTION_BANK } from './src/server/masterQuestionBankData';
+import { ACADEMIC_SUBJECTS } from './src/data/subjects';
+import { ACADEMIC_GRADES, isGradeEligible } from './src/data/grades';
+import { evaluateSchoolAutoVerification } from './src/services/schoolService';
 
 dotenv.config();
 
@@ -60,6 +66,111 @@ const studentCourseProgressStore = new Map<string, any>(); // `${studentId}_${co
 const practiceAttemptsStore = new Map<string, any[]>(); // studentId -> PracticeAttempt[]
 const dailyGoalsStore = new Map<string, any>(); // studentId -> DailyGoal
 const dailyPracticeXpStore = new Map<string, { date: string; xp: number }>(); // studentId -> { date, xp }
+
+// Stage 9: Admin System stores
+const FOUNDER_ADMIN_EMAIL = 'shohruhabdukarimov05@gmail.com';
+const schoolsStore = new Map<string, any>();
+const auditLogsStore: any[] = [
+  {
+    id: 'log_init',
+    timestamp: new Date().toISOString(),
+    action: 'SYSTEM_BOOTSTRAP',
+    actorUid: 'system',
+    actorEmail: 'system@eduverse.global',
+    targetRecord: 'system_settings/global',
+    details: { message: 'EduVerse Stage 9 Production Admin System initialized' },
+  },
+];
+const certificatesStore = new Map<string, any>();
+const paymentsStore = new Map<string, any>();
+const securityIncidentsStore: any[] = [];
+
+// Stage 10 & 11: Master Question Bank & Academic Stores
+const masterQuestionBankStore = new Map<string, any>();
+INITIAL_MASTER_QUESTION_BANK.forEach((q) => {
+  masterQuestionBankStore.set(q.id, q);
+});
+
+const generatedTestsStore = new Map<string, any>();
+const schoolAssociationsStore = new Map<string, any>();
+
+const INITIAL_COMPETITIONS = [
+  {
+    id: 'comp_math_olympiad_2026',
+    title: 'Global Mathematics Olympiad 2026',
+    description: 'Premier international mathematics competition for high school and pre-university scholars.',
+    subject: 'Mathematics',
+    category: 'Mathematics',
+    status: 'LIVE',
+    durationMinutes: 60,
+    totalQuestions: 25,
+    entryFee: 0,
+    rules: [
+      'Strict full-screen lockdown mode enforced.',
+      'Scientific calculator permitted.',
+      'Negative marking: +4 for correct, -1 for incorrect.',
+    ],
+  },
+  {
+    id: 'comp_physics_cup_2026',
+    title: 'International Physics & Quantum Challenge',
+    description: 'Rigorous physics olympiad testing classical mechanics, electromagnetism, and modern physics.',
+    subject: 'Physics',
+    category: 'Science',
+    status: 'REGISTRATION_OPEN',
+    durationMinutes: 75,
+    totalQuestions: 20,
+    entryFee: 0,
+    rules: [
+      'Strict proctoring active.',
+      'Scientific calculator permitted.',
+    ],
+  },
+  {
+    id: 'comp_informatics_2026',
+    title: 'EduVerse Global Informatics Olympiad',
+    description: 'Algorithmic problem solving, computational complexity, and data structures championship.',
+    subject: 'Computer Science',
+    category: 'Programming',
+    status: 'REGISTRATION_OPEN',
+    durationMinutes: 90,
+    totalQuestions: 15,
+    entryFee: 0,
+    rules: [
+      'Algorithm analysis and complexity validation.',
+      'No external IDE access permitted during exam.',
+    ],
+  },
+];
+
+let systemSettingsStore: any = {
+  platformName: 'EduVerse Global Olympiad Platform',
+  founderAdminEmail: FOUNDER_ADMIN_EMAIL,
+  registrationOpen: true,
+  maintenanceMode: false,
+  autoVerifyOfficialSchools: true,
+  minExamIntegrityThreshold: 75,
+  supportEmail: 'contact@eduverse.global',
+  version: '1.9.0-prod',
+};
+
+function isAuthorizedAdmin(req: express.Request): boolean {
+  const userEmail = (req.headers['x-user-email'] as string || '').toLowerCase().trim();
+  const userUid = req.headers['x-user-uid'] as string || '';
+  const userRole = req.headers['x-user-role'] as string || '';
+
+  if (userEmail === FOUNDER_ADMIN_EMAIL.toLowerCase()) {
+    return true;
+  }
+  const profile = studentProfilesStore.get(userUid);
+  if (profile && (profile.role === 'admin' || (profile.email && profile.email.toLowerCase() === FOUNDER_ADMIN_EMAIL.toLowerCase()))) {
+    return true;
+  }
+  if (userRole === 'admin') {
+    return true;
+  }
+  return false;
+}
 
 // Configurable level tiers in backend
 const SERVER_LEVEL_TIERS = [
@@ -977,6 +1088,8 @@ PEDAGOGICAL GUIDELINES:
       const { studentId } = req.params;
       const incoming = req.body || {};
 
+      const isFounder = (incoming.email || '').toLowerCase() === FOUNDER_ADMIN_EMAIL.toLowerCase();
+
       let profile = studentProfilesStore.get(studentId);
       if (!profile) {
         profile = {
@@ -986,13 +1099,13 @@ PEDAGOGICAL GUIDELINES:
           lastName: incoming.lastName || '',
           email: incoming.email || '',
           photoURL: incoming.photoURL || '',
-          role: incoming.role || 'student',
+          role: isFounder ? 'admin' : (incoming.role || 'student'),
           country: incoming.country || '',
           countryCode: incoming.countryCode || '',
           region: incoming.region || '',
-          schoolName: incoming.schoolName || '',
-          schoolVerificationStatus: incoming.schoolVerificationStatus || 'pending',
-          grade: incoming.grade || '',
+          schoolName: isFounder ? 'EduVerse Global HQ' : (incoming.schoolName || ''),
+          schoolVerificationStatus: isFounder ? 'verified' : (incoming.schoolVerificationStatus || 'pending'),
+          grade: isFounder ? 'Administrator' : (incoming.grade || ''),
           educationSystem: incoming.educationSystem || '',
           bio: incoming.bio || '',
           targetGoals: incoming.targetGoals || [],
@@ -1016,6 +1129,7 @@ PEDAGOGICAL GUIDELINES:
           ...profile,
           ...incoming,
           uid: studentId,
+          role: isFounder || profile.role === 'admin' ? 'admin' : (incoming.role || profile.role || 'student'),
           eduVerseId: profile.eduVerseId || incoming.eduVerseId || generateSecureEVId(),
         };
       }
@@ -1933,6 +2047,979 @@ Respond ONLY with a valid JSON array of objects. Do not include markdown code bl
       res.status(500).json({
         error: err?.message || 'Failed to generate custom AI practice set',
       });
+    }
+  });
+
+  // ==========================================
+  // STAGE 9: ADMIN SYSTEM & RBAC APIS
+  // ==========================================
+
+  // Admin auth guard middleware helper
+  const requireAdminMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (!isAuthorizedAdmin(req)) {
+      res.status(403).json({
+        error: 'Forbidden: Administrative clearance required for this operation.',
+      });
+      return;
+    }
+    next();
+  };
+
+  // 1. Verify Admin Clearance
+  app.get('/api/admin/verify-role', (req, res) => {
+    const isAdmin = isAuthorizedAdmin(req);
+    const userEmail = (req.headers['x-user-email'] as string || '').toLowerCase();
+    res.json({
+      isAdmin,
+      role: isAdmin ? 'admin' : 'student',
+      isFounder: userEmail === FOUNDER_ADMIN_EMAIL.toLowerCase(),
+    });
+  });
+
+  // 2. Admin System Overview & Live Metrics
+  app.get('/api/admin/overview', requireAdminMiddleware, (req, res) => {
+    try {
+      const registeredStudents = studentProfilesStore.size;
+      const registeredSchools = schoolsStore.size;
+      const activeCompetitions = INITIAL_COMPETITIONS.filter((c) => c.status === 'PUBLISHED' || c.status === 'REGISTRATION_OPEN' || c.status === 'LIVE').length;
+      const completedExams = competitionResultsStore.size;
+      
+      let pendingVerifications = 0;
+      schoolsStore.forEach((school) => {
+        if (school.verificationStatus === 'PENDING' || school.verificationStatus === 'REVIEW_REQUIRED') {
+          pendingVerifications++;
+        }
+      });
+
+      const securityReviews = securityIncidentsStore.filter((i) => i.status === 'FLAGGED').length;
+      const certificatesIssued = certificatesStore.size;
+
+      res.json({
+        registeredStudents,
+        registeredSchools,
+        activeCompetitions,
+        completedExams,
+        pendingVerifications,
+        securityReviews,
+        certificatesIssued,
+      });
+    } catch (err: any) {
+      console.error('Error fetching admin overview:', err);
+      res.status(500).json({ error: 'Failed to fetch admin overview' });
+    }
+  });
+
+  // 3. Students Management: List & Filter
+  app.get('/api/admin/students', requireAdminMiddleware, (req, res) => {
+    try {
+      const { search = '', country = '', status = '' } = req.query as { search?: string; country?: string; status?: string };
+      let list = Array.from(studentProfilesStore.values());
+
+      if (search) {
+        const term = search.toLowerCase();
+        list = list.filter(
+          (u) =>
+            u.firstName?.toLowerCase().includes(term) ||
+            u.lastName?.toLowerCase().includes(term) ||
+            u.email?.toLowerCase().includes(term) ||
+            u.eduVerseId?.toLowerCase().includes(term) ||
+            u.schoolName?.toLowerCase().includes(term)
+        );
+      }
+
+      if (country) {
+        list = list.filter((u) => u.country === country);
+      }
+
+      if (status) {
+        list = list.filter((u) => (u.accountStatus || 'active') === status);
+      }
+
+      res.json({ students: list });
+    } catch (err: any) {
+      console.error('Error listing students for admin:', err);
+      res.status(500).json({ error: 'Failed to fetch students list' });
+    }
+  });
+
+  // 4. Update Student Account Status
+  app.patch('/api/admin/students/:studentId/status', requireAdminMiddleware, (req, res) => {
+    try {
+      const { studentId } = req.params;
+      const { status } = req.body;
+      const actorEmail = (req.headers['x-user-email'] as string) || FOUNDER_ADMIN_EMAIL;
+
+      const profile = studentProfilesStore.get(studentId);
+      if (!profile) {
+        res.status(404).json({ error: 'Student not found' });
+        return;
+      }
+
+      profile.accountStatus = status;
+      studentProfilesStore.set(studentId, profile);
+
+      // Record audit log
+      auditLogsStore.unshift({
+        id: `log_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        action: 'UPDATE_STUDENT_STATUS',
+        actorUid: (req.headers['x-user-uid'] as string) || 'admin',
+        actorEmail,
+        targetRecord: `users/${studentId}`,
+        details: { newStatus: status, studentEmail: profile.email },
+      });
+
+      res.json({ success: true, profile });
+    } catch (err: any) {
+      console.error('Error updating student status:', err);
+      res.status(500).json({ error: 'Failed to update student status' });
+    }
+  });
+
+  // 5. School Directory Management: List & Filter
+  app.get('/api/admin/schools', requireAdminMiddleware, (req, res) => {
+    try {
+      const { search = '', status = '' } = req.query as { search?: string; status?: string };
+      let list = Array.from(schoolsStore.values());
+
+      if (search) {
+        const term = search.toLowerCase();
+        list = list.filter(
+          (s) =>
+            s.name?.toLowerCase().includes(term) ||
+            s.country?.toLowerCase().includes(term) ||
+            s.city?.toLowerCase().includes(term) ||
+            s.officialEmail?.toLowerCase().includes(term)
+        );
+      }
+
+      if (status) {
+        list = list.filter((s) => s.verificationStatus === status);
+      }
+
+      res.json({ schools: list });
+    } catch (err: any) {
+      console.error('Error listing schools for admin:', err);
+      res.status(500).json({ error: 'Failed to fetch schools' });
+    }
+  });
+
+  // 6. Register / Add School
+  app.post('/api/admin/schools', requireAdminMiddleware, (req, res) => {
+    try {
+      const incoming = req.body;
+      const schoolId = `sch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const now = new Date().toISOString();
+
+      const emailDomain = (incoming.officialEmail || '').split('@')[1]?.toLowerCase() || '';
+      const isOfficialDomain = emailDomain.endsWith('.edu') || emailDomain.endsWith('.ac.uk') || emailDomain.endsWith('.gov');
+      const initialStatus = isOfficialDomain ? 'VERIFIED' : incoming.verificationStatus || 'PENDING';
+
+      const schoolRecord = {
+        id: schoolId,
+        name: incoming.name || 'Unnamed Institution',
+        country: incoming.country || 'United States',
+        stateProvince: incoming.stateProvince || '',
+        city: incoming.city || '',
+        website: incoming.website || '',
+        officialEmail: incoming.officialEmail || '',
+        administrator: incoming.administrator || '',
+        grades: incoming.grades || ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'],
+        verificationStatus: initialStatus,
+        participatingStudentsCount: 0,
+        competitionsCount: 0,
+        autoVerified: isOfficialDomain,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      schoolsStore.set(schoolId, schoolRecord);
+
+      auditLogsStore.unshift({
+        id: `log_${Date.now()}`,
+        timestamp: now,
+        action: 'REGISTER_SCHOOL',
+        actorUid: (req.headers['x-user-uid'] as string) || 'admin',
+        actorEmail: (req.headers['x-user-email'] as string) || FOUNDER_ADMIN_EMAIL,
+        targetRecord: `schools/${schoolId}`,
+        details: { name: schoolRecord.name, status: initialStatus, autoVerified: isOfficialDomain },
+      });
+
+      res.json({ success: true, school: schoolRecord });
+    } catch (err: any) {
+      console.error('Error registering school:', err);
+      res.status(500).json({ error: 'Failed to register school' });
+    }
+  });
+
+  // 7. Update School Verification Status
+  app.patch('/api/admin/schools/:schoolId/verify', requireAdminMiddleware, (req, res) => {
+    try {
+      const { schoolId } = req.params;
+      const { status } = req.body;
+
+      const school = schoolsStore.get(schoolId);
+      if (!school) {
+        res.status(404).json({ error: 'School record not found' });
+        return;
+      }
+
+      school.verificationStatus = status;
+      school.updatedAt = new Date().toISOString();
+      schoolsStore.set(schoolId, school);
+
+      auditLogsStore.unshift({
+        id: `log_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        action: 'VERIFY_SCHOOL',
+        actorUid: (req.headers['x-user-uid'] as string) || 'admin',
+        actorEmail: (req.headers['x-user-email'] as string) || FOUNDER_ADMIN_EMAIL,
+        targetRecord: `schools/${schoolId}`,
+        details: { schoolName: school.name, newStatus: status },
+      });
+
+      res.json({ success: true, school });
+    } catch (err: any) {
+      console.error('Error updating school status:', err);
+      res.status(500).json({ error: 'Failed to update school verification' });
+    }
+  });
+
+  // 8. Competitions Management
+  app.get('/api/admin/competitions', requireAdminMiddleware, (req, res) => {
+    try {
+      res.json({ competitions: INITIAL_COMPETITIONS });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to fetch competitions' });
+    }
+  });
+
+  // ==========================================
+  // STAGE 10 & 11: ACADEMIC CORE & QUESTION BANK APIS
+  // ==========================================
+
+  // Public: Academic Subjects List
+  app.get('/api/subjects', (req, res) => {
+    res.json({ subjects: ACADEMIC_SUBJECTS });
+  });
+
+  // Public: Academic Grades List
+  app.get('/api/grades', (req, res) => {
+    res.json({ grades: ACADEMIC_GRADES });
+  });
+
+  // Public: Registered Schools Directory
+  app.get('/api/schools', (req, res) => {
+    try {
+      const list = Array.from(schoolsStore.values());
+      res.json({ schools: list });
+    } catch (err: any) {
+      console.error('Error fetching public schools:', err);
+      res.status(500).json({ error: 'Failed to fetch schools' });
+    }
+  });
+
+  // Public/Student: Register School (Self-Service or Official)
+  app.post('/api/schools', (req, res) => {
+    try {
+      const incoming = req.body;
+      const schoolId = incoming.id || `sch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const verification = evaluateSchoolAutoVerification(incoming);
+
+      const schoolRecord = {
+        id: schoolId,
+        name: incoming.name || 'Educational Institution',
+        country: incoming.country || 'Global',
+        stateProvince: incoming.stateProvince || '',
+        city: incoming.city || '',
+        website: incoming.website || '',
+        officialEmail: incoming.officialEmail || '',
+        administrator: incoming.administrator || 'Academic Coordinator',
+        grades: incoming.grades || ['Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'],
+        verificationStatus: verification.status,
+        participatingStudentsCount: incoming.participatingStudentsCount || 0,
+        competitionsCount: 0,
+        autoVerified: verification.autoVerified,
+        createdAt: incoming.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      schoolsStore.set(schoolId, schoolRecord);
+      res.json({ success: true, school: schoolRecord, verification });
+    } catch (err: any) {
+      console.error('Error registering school:', err);
+      res.status(500).json({ error: 'Failed to register school' });
+    }
+  });
+
+  // Public/Student: Evaluate Student Competition Eligibility
+  app.get('/api/competitions/:competitionId/eligibility', (req, res) => {
+    try {
+      const { competitionId } = req.params;
+      const { studentId, grade, country, schoolId } = req.query as {
+        studentId?: string;
+        grade?: string;
+        country?: string;
+        schoolId?: string;
+      };
+
+      const competition = INITIAL_COMPETITIONS.find((c) => c.id === competitionId);
+      if (!competition) {
+        res.status(404).json({ error: 'Competition not found' });
+        return;
+      }
+
+      // Check grade eligibility
+      const studentGrade = grade || (studentId ? studentProfilesStore.get(studentId)?.grade : '') || '';
+      const allowedGrades = (competition as any).allowedGrades || ['All'];
+      const gradeEligible = isGradeEligible(studentGrade, allowedGrades);
+
+      // Check country eligibility
+      const studentCountry = country || (studentId ? studentProfilesStore.get(studentId)?.country : '') || '';
+      const restrictedCountries = (competition as any).restrictedCountries || [];
+      const countryEligible = !restrictedCountries.includes(studentCountry);
+
+      // Check school requirement if competition requires verified school
+      const requiresSchool = (competition as any).requiresSchool || false;
+      let schoolEligible = true;
+      if (requiresSchool) {
+        const studentSchoolId = schoolId || (studentId ? studentProfilesStore.get(studentId)?.schoolId : '');
+        const schoolObj = studentSchoolId ? schoolsStore.get(studentSchoolId) : null;
+        schoolEligible = !!schoolObj && schoolObj.verificationStatus === 'VERIFIED';
+      }
+
+      const isEligible = gradeEligible && countryEligible && schoolEligible;
+      const reasons: string[] = [];
+      if (!gradeEligible) reasons.push(`This competition is for ${allowedGrades.join(', ')}. Your grade is ${studentGrade || 'unspecified'}.`);
+      if (!countryEligible) reasons.push(`This competition is restricted in your region.`);
+      if (!schoolEligible && requiresSchool) reasons.push(`This championship requires verification from an affiliated accredited school.`);
+
+      res.json({
+        competitionId,
+        isEligible,
+        gradeEligible,
+        countryEligible,
+        schoolEligible,
+        reasons,
+        competitionTitle: competition.title,
+      });
+    } catch (err: any) {
+      console.error('Error checking eligibility:', err);
+      res.status(500).json({ error: 'Failed to evaluate eligibility' });
+    }
+  });
+
+  // 9. Master Question Bank Access (Authoritative Server View with Answer Keys & Explanations)
+  app.get('/api/admin/question-bank', requireAdminMiddleware, (req, res) => {
+    try {
+      const { subjectId, grade, difficulty, status, q } = req.query as {
+        subjectId?: string;
+        grade?: string;
+        difficulty?: string;
+        status?: string;
+        q?: string;
+      };
+
+      let list = Array.from(masterQuestionBankStore.values());
+
+      if (subjectId && subjectId !== 'all') {
+        list = list.filter(
+          (item) =>
+            item.subjectId === subjectId ||
+            item.subjectName?.toLowerCase() === subjectId.toLowerCase() ||
+            item.subject?.toLowerCase() === subjectId.toLowerCase()
+        );
+      }
+
+      if (grade && grade !== 'all') {
+        list = list.filter((item) => {
+          const itemGrade = String(item.grade || '').toLowerCase();
+          const targetGrade = String(grade).toLowerCase();
+          return itemGrade.includes(targetGrade) || targetGrade.includes(itemGrade);
+        });
+      }
+
+      if (difficulty && difficulty !== 'all') {
+        list = list.filter((item) => String(item.difficulty).toLowerCase() === String(difficulty).toLowerCase());
+      }
+
+      if (status && status !== 'all') {
+        list = list.filter((item) => String(item.status).toLowerCase() === String(status).toLowerCase());
+      }
+
+      if (q) {
+        const queryTerm = q.toLowerCase();
+        list = list.filter(
+          (item) =>
+            item.questionText?.toLowerCase().includes(queryTerm) ||
+            item.topic?.toLowerCase().includes(queryTerm) ||
+            item.questionId?.toLowerCase().includes(queryTerm) ||
+            item.explanation?.toLowerCase().includes(queryTerm)
+        );
+      }
+
+      res.json({ questions: list, total: list.length });
+    } catch (err: any) {
+      console.error('Error fetching master question bank for admin:', err);
+      res.status(500).json({ error: 'Failed to fetch question bank' });
+    }
+  });
+
+  // 9.1 Save / Create / Update Master Question Bank Item
+  app.post('/api/admin/question-bank', requireAdminMiddleware, (req, res) => {
+    try {
+      const incoming = req.body;
+      const docId = incoming.id || `qb_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const now = new Date().toISOString();
+
+      const existing = masterQuestionBankStore.get(docId) || {};
+      const updatedItem = {
+        ...existing,
+        ...incoming,
+        id: docId,
+        questionId: incoming.questionId || `Q-${Date.now().toString().slice(-6)}`,
+        status: incoming.status || 'Draft',
+        updatedAt: now,
+        createdAt: existing.createdAt || incoming.createdAt || now,
+      };
+
+      masterQuestionBankStore.set(docId, updatedItem);
+
+      // Record audit log
+      auditLogsStore.unshift({
+        id: `log_${Date.now()}`,
+        timestamp: now,
+        action: existing.id ? 'UPDATE_QUESTION_BANK_ITEM' : 'CREATE_QUESTION_BANK_ITEM',
+        actorUid: (req.headers['x-user-uid'] as string) || 'admin',
+        actorEmail: (req.headers['x-user-email'] as string) || FOUNDER_ADMIN_EMAIL,
+        targetRecord: `questionBank/${docId}`,
+        details: { questionId: updatedItem.questionId, subject: updatedItem.subjectName, status: updatedItem.status },
+      });
+
+      res.json({ success: true, question: updatedItem });
+    } catch (err: any) {
+      console.error('Error saving question bank item:', err);
+      res.status(500).json({ error: 'Failed to save question bank item' });
+    }
+  });
+
+  // 9.2 Update Question Status (Draft -> Review -> Approved -> Archived)
+  app.patch('/api/admin/question-bank/:questionId/status', requireAdminMiddleware, (req, res) => {
+    try {
+      const { questionId } = req.params;
+      const { status } = req.body;
+
+      const item = masterQuestionBankStore.get(questionId);
+      if (!item) {
+        res.status(404).json({ error: 'Question not found' });
+        return;
+      }
+
+      item.status = status;
+      item.updatedAt = new Date().toISOString();
+      masterQuestionBankStore.set(questionId, item);
+
+      auditLogsStore.unshift({
+        id: `log_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        action: 'UPDATE_QUESTION_STATUS',
+        actorUid: (req.headers['x-user-uid'] as string) || 'admin',
+        actorEmail: (req.headers['x-user-email'] as string) || FOUNDER_ADMIN_EMAIL,
+        targetRecord: `questionBank/${questionId}`,
+        details: { newStatus: status, questionId: item.questionId },
+      });
+
+      res.json({ success: true, question: item });
+    } catch (err: any) {
+      console.error('Error updating question status:', err);
+      res.status(500).json({ error: 'Failed to update question status' });
+    }
+  });
+
+  // 9.3 Delete Question Item
+  app.delete('/api/admin/question-bank/:questionId', requireAdminMiddleware, (req, res) => {
+    try {
+      const { questionId } = req.params;
+      const existed = masterQuestionBankStore.delete(questionId);
+
+      if (existed) {
+        auditLogsStore.unshift({
+          id: `log_${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          action: 'DELETE_QUESTION_BANK_ITEM',
+          actorUid: (req.headers['x-user-uid'] as string) || 'admin',
+          actorEmail: (req.headers['x-user-email'] as string) || FOUNDER_ADMIN_EMAIL,
+          targetRecord: `questionBank/${questionId}`,
+          details: { deletedId: questionId },
+        });
+      }
+
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error deleting question item:', err);
+      res.status(500).json({ error: 'Failed to delete question item' });
+    }
+  });
+
+  // 9.4 AI-Powered Question Generator for Admin Drafts (Gemini Integration)
+  app.post('/api/admin/ai-generate-question', requireAdminMiddleware, async (req, res) => {
+    try {
+      const { subjectName = 'Mathematics', grade = 'Grade 10', topic = 'Algebra', difficulty = 'Medium', promptGuidelines = '' } = req.body;
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+        return;
+      }
+
+      const ai = getGeminiClient();
+      const prompt = `You are a world-class academic olympiad problem author for EduVerse.
+Generate 1 pristine, rigorous academic competition question for:
+Subject: ${subjectName}
+Grade Level: ${grade}
+Topic: ${topic}
+Difficulty: ${difficulty}
+Additional Guidelines: ${promptGuidelines || 'Standard competitive olympiad quality with clean LaTeX notation and step-by-step mathematical or scientific solution.'}
+
+Output STRICTLY a valid JSON object with the following fields:
+{
+  "questionText": "The complete problem statement formatted with LaTeX if applicable",
+  "topic": "${topic}",
+  "difficulty": "${difficulty}",
+  "options": [
+    {"id": "A", "label": "A", "text": "Option A text"},
+    {"id": "B", "label": "B", "text": "Option B text"},
+    {"id": "C", "label": "C", "text": "Option C text"},
+    {"id": "D", "label": "D", "text": "Option D text"}
+  ],
+  "correctAnswer": "A or B or C or D",
+  "explanation": "Detailed step-by-step official proof/solution",
+  "points": ${difficulty === 'Hard' ? 5 : difficulty === 'Medium' ? 4 : 3},
+  "negativePoints": ${difficulty === 'Hard' ? 1 : 0},
+  "allowCalculator": ${subjectName === 'Mathematics' || subjectName === 'Physics' || subjectName === 'Chemistry' ? 'true' : 'false'},
+  "tags": ["${topic.toLowerCase()}", "${subjectName.toLowerCase()}"]
+}
+
+Respond ONLY with valid JSON.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.7-flash',
+        contents: prompt,
+        config: { temperature: 0.4 },
+      });
+
+      let raw = (response.text || '{}').trim();
+      if (raw.startsWith('```json')) raw = raw.substring(7);
+      if (raw.startsWith('```')) raw = raw.substring(3);
+      if (raw.endsWith('```')) raw = raw.substring(0, raw.length - 3);
+      raw = raw.trim();
+
+      const parsed = JSON.parse(raw);
+      const newDocId = `qb_ai_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const draftItem = {
+        id: newDocId,
+        questionId: `AI-${subjectName.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`,
+        subjectId: req.body.subjectId || 'subj_math',
+        subjectName,
+        grade,
+        topic: parsed.topic || topic,
+        difficulty: parsed.difficulty || difficulty,
+        questionText: parsed.questionText,
+        options: parsed.options,
+        correctAnswer: parsed.correctAnswer,
+        explanation: parsed.explanation,
+        points: parsed.points || 4,
+        negativePoints: parsed.negativePoints || 0,
+        language: 'en',
+        status: 'Draft',
+        allowCalculator: parsed.allowCalculator ?? true,
+        tags: parsed.tags || [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      masterQuestionBankStore.set(newDocId, draftItem);
+
+      res.json({ success: true, draft: draftItem });
+    } catch (err: any) {
+      console.error('Error generating AI question draft:', err);
+      res.status(500).json({ error: err?.message || 'Failed to generate AI question draft' });
+    }
+  });
+
+  // 9.5 Server-Authoritative Multi-Subject Test Generation Engine
+  app.post('/api/admin/generate-test', requireAdminMiddleware, (req, res) => {
+    try {
+      const {
+        title,
+        subjectId,
+        subjectName,
+        grade,
+        numberOfQuestions = 10,
+        difficultyDistribution = { easy: 30, medium: 50, hard: 20 },
+        timeLimitMinutes = 60,
+        points = 50,
+        language = 'en',
+        competitionType = 'Weekly Challenge',
+      } = req.body;
+
+      if (!subjectId && !subjectName) {
+        res.status(400).json({ error: 'Subject is required for test generation.' });
+        return;
+      }
+
+      // 1. Filter approved questions from Master Question Bank
+      let approvedPool = Array.from(masterQuestionBankStore.values()).filter((q) => {
+        const matchesStatus = q.status === 'Approved' || q.status === 'Review';
+        const matchesSubject =
+          !subjectId ||
+          q.subjectId === subjectId ||
+          q.subjectName?.toLowerCase() === subjectName?.toLowerCase();
+        const matchesGrade =
+          !grade ||
+          grade === 'All' ||
+          String(q.grade || '').toLowerCase().includes(String(grade).toLowerCase()) ||
+          String(grade).toLowerCase().includes(String(q.grade || '').toLowerCase());
+        return matchesStatus && matchesSubject && matchesGrade;
+      });
+
+      // Fallback: If approved pool is smaller than required, include all subject questions
+      if (approvedPool.length < numberOfQuestions) {
+        approvedPool = Array.from(masterQuestionBankStore.values()).filter((q) => {
+          return (
+            !subjectId ||
+            q.subjectId === subjectId ||
+            q.subjectName?.toLowerCase() === subjectName?.toLowerCase()
+          );
+        });
+      }
+
+      // If pool is still empty, grab general questions
+      if (approvedPool.length === 0) {
+        approvedPool = Array.from(masterQuestionBankStore.values());
+      }
+
+      // 2. Separate into difficulty buckets
+      const easyBucket = approvedPool.filter((q) => q.difficulty === 'Easy' || q.difficulty === 'FOUNDATIONAL');
+      const medBucket = approvedPool.filter((q) => q.difficulty === 'Medium' || q.difficulty === 'INTERMEDIATE');
+      const hardBucket = approvedPool.filter((q) => q.difficulty === 'Hard' || q.difficulty === 'OLYMPIAD' || q.difficulty === 'ADVANCED');
+
+      const targetEasy = Math.max(1, Math.round((numberOfQuestions * (difficultyDistribution.easy || 30)) / 100));
+      const targetHard = Math.max(1, Math.round((numberOfQuestions * (difficultyDistribution.hard || 20)) / 100));
+      const targetMed = Math.max(1, numberOfQuestions - targetEasy - targetHard);
+
+      function shuffle<T>(array: T[]): T[] {
+        const arr = [...array];
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }
+
+      const selectedEasy = shuffle(easyBucket).slice(0, targetEasy);
+      const selectedMed = shuffle(medBucket).slice(0, targetMed);
+      const selectedHard = shuffle(hardBucket).slice(0, targetHard);
+
+      let selectedQuestions = [...selectedEasy, ...selectedMed, ...selectedHard];
+
+      // Fill remaining if needed
+      if (selectedQuestions.length < numberOfQuestions) {
+        const remaining = approvedPool.filter((q) => !selectedQuestions.some((s) => s.id === q.id));
+        selectedQuestions = [...selectedQuestions, ...shuffle(remaining).slice(0, numberOfQuestions - selectedQuestions.length)];
+      }
+
+      // Shuffle question order
+      selectedQuestions = shuffle(selectedQuestions);
+
+      // Randomize options for each question while accurately tracking correct answer key
+      const serverExamQuestions = selectedQuestions.map((q, idx) => {
+        let options = q.options ? [...q.options] : [];
+        let correctAnswer = q.correctAnswer;
+
+        if (options.length > 0) {
+          // Find original correct option text
+          const correctOptionText = options.find((opt) => opt.id === q.correctAnswer || opt.label === q.correctAnswer)?.text;
+          // Shuffle options
+          const shuffledOptions = shuffle(options);
+          const labels = ['A', 'B', 'C', 'D', 'E'];
+          const reindexedOptions = shuffledOptions.map((opt, oIdx) => ({
+            id: labels[oIdx] || String(oIdx),
+            label: labels[oIdx] || String(oIdx),
+            text: opt.text,
+          }));
+
+          // Re-map correct answer to new letter
+          if (correctOptionText) {
+            const newCorrect = reindexedOptions.find((opt) => opt.text === correctOptionText);
+            if (newCorrect) {
+              correctAnswer = newCorrect.id;
+            }
+          }
+          options = reindexedOptions;
+        }
+
+        return {
+          id: q.id || `q_${idx + 1}`,
+          competitionId: `gen_test_${Date.now()}`,
+          questionNumber: idx + 1,
+          type: 'SINGLE_CHOICE',
+          questionText: q.questionText,
+          options,
+          points: q.points || 4,
+          negativePoints: q.negativePoints || 0,
+          difficulty: q.difficulty || 'Medium',
+          subject: q.subjectName || subjectName || 'Academic Subject',
+          topic: q.topic || 'General Problem Solving',
+          order: idx + 1,
+          allowCalculator: q.allowCalculator ?? true,
+          correctAnswer,
+          explanation: q.explanation || 'Official step-by-step mathematical and conceptual explanation.',
+        };
+      });
+
+      const testId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const now = new Date().toISOString();
+
+      // Register server-side questions with grading key
+      registerCompetitionQuestions(testId, serverExamQuestions as any);
+
+      // Create GeneratedTest entity
+      const generatedTestRecord = {
+        id: testId,
+        title: title || `${subjectName || 'Academic'} ${grade || 'Grade 10'} ${competitionType}`,
+        subjectId: subjectId || 'subj_math',
+        subjectName: subjectName || 'Mathematics',
+        grade: grade || 'Grade 10',
+        numberOfQuestions: serverExamQuestions.length,
+        difficultyDistribution,
+        timeLimitMinutes,
+        points: serverExamQuestions.reduce((acc, q) => acc + q.points, 0),
+        language,
+        competitionType,
+        selectedQuestionIds: serverExamQuestions.map((q) => q.id),
+        status: 'READY',
+        createdAt: now,
+      };
+
+      generatedTestsStore.set(testId, generatedTestRecord);
+
+      // Also auto-create a Competition entry so students can take it immediately
+      const competitionRecord = {
+        id: testId,
+        title: generatedTestRecord.title,
+        description: `Authoritative ${subjectName} examination designed for ${grade} candidates (${competitionType}).`,
+        subject: subjectName || 'Mathematics',
+        category: 'Academic',
+        status: 'REGISTRATION_OPEN',
+        durationMinutes: timeLimitMinutes,
+        totalQuestions: serverExamQuestions.length,
+        entryFee: 0,
+        allowedGrades: [grade || 'All'],
+        rules: [
+          'Strict proctoring & lockdown mode enforced.',
+          `Time limit: ${timeLimitMinutes} minutes.`,
+          'All answers evaluated with server-authoritative grading.',
+        ],
+      };
+
+      INITIAL_COMPETITIONS.push(competitionRecord as any);
+
+      auditLogsStore.unshift({
+        id: `log_${Date.now()}`,
+        timestamp: now,
+        action: 'GENERATE_TEST_FROM_QUESTION_BANK',
+        actorUid: (req.headers['x-user-uid'] as string) || 'admin',
+        actorEmail: (req.headers['x-user-email'] as string) || FOUNDER_ADMIN_EMAIL,
+        targetRecord: `generatedTests/${testId}`,
+        details: { testId, subject: subjectName, grade, questionsCount: serverExamQuestions.length },
+      });
+
+      res.json({
+        success: true,
+        test: generatedTestRecord,
+        competition: competitionRecord,
+        sanitizedQuestionsCount: serverExamQuestions.length,
+      });
+    } catch (err: any) {
+      console.error('Error generating test:', err);
+      res.status(500).json({ error: 'Failed to generate test from Question Bank' });
+    }
+  });
+
+  // 10. Results & Official Standings
+  app.get('/api/admin/results', requireAdminMiddleware, (req, res) => {
+    try {
+      const resultsList = Array.from(competitionResultsStore.values());
+      res.json({ results: resultsList });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to fetch official results' });
+    }
+  });
+
+  // 11. Certificates Management & Issue
+  app.get('/api/admin/certificates', requireAdminMiddleware, (req, res) => {
+    try {
+      const certs = Array.from(certificatesStore.values());
+      res.json({ certificates: certs });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to fetch certificates' });
+    }
+  });
+
+  app.post('/api/admin/certificates/issue', requireAdminMiddleware, (req, res) => {
+    try {
+      const { studentId, studentName, competitionId, competitionTitle, awardTitle, score, rank } = req.body;
+      const certId = `cert_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const certCode = `EV-CERT-2026-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+      const certificate = {
+        id: certId,
+        certificateCode: certCode,
+        studentId,
+        studentName,
+        competitionId,
+        competitionTitle,
+        awardTitle,
+        score: score || 0,
+        rank: rank || 1,
+        issueDate: new Date().toISOString(),
+        verificationUrl: `https://eduverse.global/verify/${certCode}`,
+        status: 'ISSUED',
+      };
+
+      certificatesStore.set(certId, certificate);
+
+      auditLogsStore.unshift({
+        id: `log_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        action: 'ISSUE_CERTIFICATE',
+        actorUid: (req.headers['x-user-uid'] as string) || 'admin',
+        actorEmail: (req.headers['x-user-email'] as string) || FOUNDER_ADMIN_EMAIL,
+        targetRecord: `certificates/${certId}`,
+        details: { certCode, studentName, awardTitle, competitionTitle },
+      });
+
+      res.json({ success: true, certificate });
+    } catch (err: any) {
+      console.error('Error issuing certificate:', err);
+      res.status(500).json({ error: 'Failed to issue certificate' });
+    }
+  });
+
+  // 12. Payments Ledger (No fake transactions - empty state if none)
+  app.get('/api/admin/payments', requireAdminMiddleware, (req, res) => {
+    try {
+      const payments = Array.from(paymentsStore.values());
+      res.json({ payments });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to fetch payments' });
+    }
+  });
+
+  // 13. Live Security & Exam Monitoring
+  app.get('/api/admin/security', requireAdminMiddleware, (req, res) => {
+    try {
+      // Gather any live exam session incidents
+      const incidents = [...securityIncidentsStore];
+      
+      // Also inspect active exam sessions for tab switches
+      activeExamSessions.forEach((session, sId) => {
+        const events = integrityEventsStore.get(sId) || [];
+        const tabSwitches = events.filter((e: any) => e.type === 'TAB_SWITCH' || e.type === 'FULLSCREEN_EXIT').length;
+        if (tabSwitches > 0) {
+          const alreadyLogged = incidents.some((inc) => inc.sessionId === sId);
+          if (!alreadyLogged) {
+            incidents.push({
+              id: `inc_${sId}`,
+              sessionId: sId,
+              studentId: session.studentId,
+              studentName: session.studentName || 'Student Candidate',
+              competitionId: session.competitionId,
+              competitionTitle: session.competitionTitle || 'Olympiad Exam',
+              incidentType: 'TAB_SWITCH',
+              severity: tabSwitches > 3 ? 'HIGH' : 'MEDIUM',
+              timestamp: session.lastActivityAt || session.startedAt || new Date().toISOString(),
+              details: `Detected ${tabSwitches} focus or fullscreen integrity warnings.`,
+              status: 'FLAGGED',
+            });
+          }
+        }
+      });
+
+      res.json({ incidents });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to fetch security logs' });
+    }
+  });
+
+  // 14. Content & Curriculum Overview
+  app.get('/api/admin/content', requireAdminMiddleware, (req, res) => {
+    try {
+      res.json({
+        subjectsCount: INITIAL_SUBJECTS.length,
+        coursesCount: INITIAL_COURSES.length,
+        resourcesCount: INITIAL_RESOURCES.length,
+        subjects: INITIAL_SUBJECTS,
+        courses: INITIAL_COURSES,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to fetch curriculum overview' });
+    }
+  });
+
+  // 15. System Settings Configuration
+  app.get('/api/admin/settings', requireAdminMiddleware, (req, res) => {
+    res.json(systemSettingsStore);
+  });
+
+  app.post('/api/admin/settings', requireAdminMiddleware, (req, res) => {
+    try {
+      const updates = req.body || {};
+      systemSettingsStore = { ...systemSettingsStore, ...updates };
+
+      auditLogsStore.unshift({
+        id: `log_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        action: 'UPDATE_SYSTEM_SETTINGS',
+        actorUid: (req.headers['x-user-uid'] as string) || 'admin',
+        actorEmail: (req.headers['x-user-email'] as string) || FOUNDER_ADMIN_EMAIL,
+        targetRecord: 'system_settings/global',
+        details: updates,
+      });
+
+      res.json({ success: true, settings: systemSettingsStore });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to update system settings' });
+    }
+  });
+
+  // 16. Immutable Audit Logs Feed
+  app.get('/api/admin/audit-logs', requireAdminMiddleware, (req, res) => {
+    try {
+      const limitCount = parseInt(req.query.limit as string, 10) || 50;
+      res.json({ logs: auditLogsStore.slice(0, limitCount) });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to fetch audit logs' });
+    }
+  });
+
+  app.post('/api/admin/audit-logs', requireAdminMiddleware, (req, res) => {
+    try {
+      const log = req.body;
+      const entry = {
+        id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        timestamp: new Date().toISOString(),
+        action: log.action || 'ADMIN_ACTION',
+        actorUid: log.actorUid || 'admin',
+        actorEmail: log.actorEmail || FOUNDER_ADMIN_EMAIL,
+        targetRecord: log.targetRecord || '',
+        details: log.details || {},
+      };
+      auditLogsStore.unshift(entry);
+      res.json({ success: true, entry });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to record audit log' });
     }
   });
 

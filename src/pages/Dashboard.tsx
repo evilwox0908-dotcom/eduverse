@@ -16,6 +16,7 @@ import { LeaderboardPage } from './LeaderboardPage';
 import { ProfilePage } from './ProfilePage';
 import { GenericSectionPage } from './GenericSectionPage';
 import { AITeacherPage } from './AITeacherPage';
+import { AdminDashboard } from '../components/admin/AdminDashboard';
 
 interface DashboardProps {
   initialView?: DashboardView;
@@ -24,6 +25,7 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ initialView = 'home' }) => {
   const { userProfile, user, logout } = useAuth();
   const [currentView, setCurrentView] = useState<DashboardView>(initialView);
+  const [isImmersiveMode, setIsImmersiveMode] = useState<boolean>(false);
   const [initialAIPrompt, setInitialAIPrompt] = useState<string>('');
   const [initialActionType, setInitialActionType] = useState<string | undefined>();
 
@@ -117,6 +119,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialView = 'home' }) =>
             <LearnPage
               onSelectView={setCurrentView}
               onLaunchAIWithTopic={handleLaunchAIWithTopic}
+              onImmersiveModeChange={setIsImmersiveMode}
             />
           )}
 
@@ -132,6 +135,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialView = 'home' }) =>
             <ProfilePage onSelectView={setCurrentView} />
           )}
 
+          {currentView === 'admin' && (
+            <AdminDashboard />
+          )}
+
           {(currentView === 'universities' ||
             currentView === 'events' ||
             currentView === 'settings') && (
@@ -143,17 +150,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialView = 'home' }) =>
         </main>
       </div>
 
-      {/* Mobile Touch Navigation Bar */}
-      <MobileBottomNav
-        currentView={currentView}
-        onSelectView={(view) => {
-          if (view === 'ai') {
-            setInitialAIPrompt('');
-            setInitialActionType(undefined);
-          }
-          setCurrentView(view);
-        }}
-      />
+      {/* Mobile Touch Navigation Bar (Hidden during immersive lesson modes) */}
+      {!isImmersiveMode && (
+        <MobileBottomNav
+          currentView={currentView}
+          onSelectView={(view) => {
+            if (view === 'ai') {
+              setInitialAIPrompt('');
+              setInitialActionType(undefined);
+            }
+            setCurrentView(view);
+          }}
+        />
+      )}
     </div>
   );
 };

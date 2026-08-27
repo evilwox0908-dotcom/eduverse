@@ -28,7 +28,7 @@ export interface InfoCardData {
   tag: string;
 }
 
-export type UserRole = 'student' | 'teacher' | 'parent';
+export type UserRole = 'student' | 'teacher' | 'parent' | 'admin';
 
 export type SchoolVerificationStatus = 'verified' | 'pending' | 'none';
 
@@ -58,6 +58,7 @@ export interface UserProfile {
   schoolVerificationStatus: SchoolVerificationStatus;
   grade: string;
   educationSystem: string;
+  dateOfBirth?: string;
   profileCompleted: boolean;
   eduverseScore?: number;
   xp?: number;
@@ -69,6 +70,7 @@ export interface UserProfile {
   bio?: string;
   targetGoals?: string[];
   privacySettings?: ProfilePrivacySettings;
+  accountStatus?: 'active' | 'suspended';
   createdAt?: any;
   updatedAt?: any;
 }
@@ -360,7 +362,8 @@ export type DashboardView =
   | 'events'
   | 'ai'
   | 'profile'
-  | 'settings';
+  | 'settings'
+  | 'admin';
 
 // ==========================================
 // PHASE 5: EXAM ENGINE DOMAIN TYPES
@@ -823,5 +826,226 @@ export interface LearningResource {
   tags?: string[];
   createdAt?: string;
 }
+
+// ==========================================
+// STAGE 9: ADMIN SYSTEM DOMAIN TYPES
+// ==========================================
+
+export type AdminTab =
+  | 'overview'
+  | 'students'
+  | 'schools'
+  | 'competitions'
+  | 'question-bank'
+  | 'results'
+  | 'certificates'
+  | 'payments'
+  | 'security'
+  | 'content'
+  | 'settings';
+
+export type SchoolStatus = 'VERIFIED' | 'PENDING' | 'REVIEW_REQUIRED' | 'REJECTED';
+
+export interface SchoolRecord {
+  id: string;
+  name: string;
+  country: string;
+  stateProvince?: string;
+  city: string;
+  website?: string;
+  officialEmail: string;
+  administrator: string;
+  grades: string[];
+  verificationStatus: SchoolStatus;
+  participatingStudentsCount: number;
+  competitionsCount: number;
+  autoVerified?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminMetrics {
+  registeredStudents: number;
+  registeredSchools: number;
+  activeCompetitions: number;
+  completedExams: number;
+  pendingVerifications: number;
+  securityReviews: number;
+  certificatesIssued: number;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  action: string;
+  actorUid: string;
+  actorEmail: string;
+  targetRecord: string;
+  details?: Record<string, any>;
+  ipAddress?: string;
+}
+
+export interface CertificateRecord {
+  id: string;
+  certificateCode: string; // e.g. EV-CERT-2026-XXXXX
+  studentId: string;
+  studentName: string;
+  competitionId: string;
+  competitionTitle: string;
+  awardTitle: string; // e.g. "Gold Honor Award", "Certificate of High Distinction"
+  rank?: number;
+  score: number;
+  issueDate: string;
+  verificationUrl: string;
+  status: 'ISSUED' | 'REVOKED';
+}
+
+export interface PaymentRecord {
+  id: string;
+  transactionId: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  competitionId: string;
+  competitionTitle: string;
+  amount: number;
+  currency: string;
+  status: 'COMPLETED' | 'PENDING' | 'FAILED' | 'REFUNDED';
+  paymentMethod: string;
+  timestamp: string;
+}
+
+export interface SecurityIncident {
+  id: string;
+  sessionId: string;
+  studentId: string;
+  studentName: string;
+  competitionId: string;
+  competitionTitle: string;
+  incidentType: 'TAB_SWITCH' | 'FULLSCREEN_EXIT' | 'COPY_PASTE' | 'DEVICE_MISMATCH' | 'MULTIPLE_DISPLAYS' | 'SUSPICIOUS_KEY';
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  timestamp: string;
+  details: string;
+  status: 'FLAGGED' | 'REVIEWED' | 'DISMISSED';
+}
+
+export interface SystemSettingsConfig {
+  platformName: string;
+  founderAdminEmail: string;
+  registrationOpen: boolean;
+  maintenanceMode: boolean;
+  autoVerifyOfficialSchools: boolean;
+  minExamIntegrityThreshold: number; // e.g. 70%
+  supportEmail: string;
+  version: string;
+}
+
+// ==========================================
+// STAGE 10: MULTI-SUBJECT QUESTION BANK & TEST ENGINE TYPES
+// ==========================================
+
+export type AcademicGrade =
+  | 'Grade 5'
+  | 'Grade 6'
+  | 'Grade 7'
+  | 'Grade 8'
+  | 'Grade 9'
+  | 'Grade 10'
+  | 'Grade 11'
+  | 'Grade 12';
+
+export type QuestionBankStatus = 'Draft' | 'Review' | 'Approved' | 'Archived';
+export type BankDifficulty = 'Easy' | 'Medium' | 'Hard';
+
+export interface QuestionBankItem {
+  id: string;
+  questionId: string;
+  subjectId: string;
+  subjectName: string;
+  grade: string; // e.g. 'Grade 9', 'Grade 10'
+  topic: string;
+  difficulty: BankDifficulty;
+  questionText: string;
+  options: QuestionOption[];
+  correctAnswer: string | string[]; // Answer key
+  explanation: string;
+  points: number;
+  negativePoints?: number;
+  language: string; // e.g. 'en', 'uz', 'ru'
+  status: QuestionBankStatus;
+  allowCalculator?: boolean;
+  creatorId?: string;
+  creatorEmail?: string;
+  tags?: string[];
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface DifficultyDistribution {
+  easy: number;
+  medium: number;
+  hard: number;
+}
+
+export interface TestGenerationConfig {
+  title?: string;
+  subjectId: string;
+  subjectName: string;
+  grade: string;
+  numberOfQuestions: number;
+  difficultyDistribution: DifficultyDistribution;
+  timeLimitMinutes: number;
+  points?: number;
+  language?: string;
+  competitionType?: string;
+}
+
+export interface GeneratedTest {
+  id: string;
+  title: string;
+  subjectId: string;
+  subjectName: string;
+  grade: string;
+  numberOfQuestions: number;
+  difficultyDistribution: DifficultyDistribution;
+  timeLimitMinutes: number;
+  points: number;
+  language: string;
+  competitionType: string;
+  selectedQuestionIds: string[];
+  questions?: ExamQuestion[];
+  status: 'DRAFT' | 'READY' | 'ACTIVE' | 'ARCHIVED';
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// ==========================================
+// STAGE 11: COMPETITION & SCHOOL ELIGIBILITY TYPES
+// ==========================================
+
+export type CompetitionTier = 'Weekly Challenge' | 'Quarterly Championship' | 'Global Championship';
+
+export interface SchoolAssociationRequest {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  schoolId: string;
+  schoolName: string;
+  grade: string;
+  status: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  requestedAt: string;
+  verifiedAt?: string;
+}
+
+export interface SchoolVerificationResult {
+  status: SchoolStatus;
+  confidenceScore: number;
+  autoVerified: boolean;
+  matchedCriteria: string[];
+  recommendedAction: string;
+}
+
+
 
 

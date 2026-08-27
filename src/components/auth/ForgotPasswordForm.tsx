@@ -20,23 +20,28 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onNaviga
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!email.trim()) {
-      setErrorMessage('Please enter your email address.');
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setErrorMessage('Please enter your registered email address.');
       return;
     }
 
     setIsLoading(true);
     try {
-      await resetPassword(email);
+      await resetPassword(trimmedEmail);
       setIsSuccess(true);
     } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/invalid-email') {
-        setErrorMessage('Please enter a valid email address.');
-      } else if (err.code === 'auth/user-not-found') {
-        setErrorMessage('No account found with this email.');
+      console.error('Password reset error:', err);
+      const code = err?.code || '';
+      if (code === 'auth/invalid-email') {
+        setErrorMessage('Please provide a valid email format (e.g. name@school.edu).');
+      } else if (code === 'auth/too-many-requests') {
+        setErrorMessage('Too many requests. Please wait a few moments before trying again.');
+      } else if (code === 'auth/network-request-failed') {
+        setErrorMessage('Network connection error. Please check your internet connection.');
       } else {
-        setErrorMessage('Failed to send reset link. Please check your email and try again.');
+        // Secure generic message to prevent account enumeration while acknowledging request
+        setIsSuccess(true);
       }
     } finally {
       setIsLoading(false);
@@ -50,8 +55,8 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onNaviga
         <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
           Reset your password
         </h2>
-        <p className="text-sm sm:text-base text-slate-500 mt-1.5">
-          Enter your email address and we&apos;ll send you a link to reset your password.
+        <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
+          Enter your registered email address and we&apos;ll send you a secure link to create a new password.
         </p>
       </div>
 
@@ -59,26 +64,31 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onNaviga
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="p-6 rounded-2xl bg-blue-50/90 border border-blue-200 text-center space-y-4"
+          className="p-6 rounded-2xl bg-blue-50/90 border border-blue-200 text-center space-y-4 shadow-sm"
         >
           <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center mx-auto shadow-md shadow-blue-600/30">
             <CheckCircle2 className="w-6 h-6" />
           </div>
           <div>
-            <h4 className="text-base font-bold text-slate-900">Check your email</h4>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1.5 leading-relaxed">
-              We have sent a password reset link to <strong className="text-slate-800">{email}</strong>. Please follow the instructions in the email to set a new password.
+            <h4 className="text-lg font-bold text-slate-900">Password reset link sent</h4>
+            <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
+              Check your email and follow the secure link to create a new password.
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              Sent to: <span className="font-semibold text-slate-700">{email}</span>
             </p>
           </div>
-          <Button
-            variant="primary"
-            size="md"
-            fullWidth
-            onClick={() => onNavigate('login')}
-            className="mt-2"
-          >
-            Return to Login
-          </Button>
+          <div className="pt-2">
+            <Button
+              variant="primary"
+              size="md"
+              fullWidth
+              onClick={() => onNavigate('login')}
+              className="mt-2"
+            >
+              Return to Login
+            </Button>
+          </div>
         </motion.div>
       ) : (
         <>
@@ -97,7 +107,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onNaviga
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5" htmlFor="reset-email">
-                Email address
+                Registered Email Address
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -110,6 +120,7 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onNaviga
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="alex.chen@eduverse.org"
                   required
+                  autoComplete="email"
                   className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white/80 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-2xs"
                 />
               </div>

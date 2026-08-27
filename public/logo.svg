@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <!-- Subtle drop shadow for depth if needed -->
+    <filter id="subtle-shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.08" />
+    </filter>
+  </defs>
+
+  <!-- Circular Outer White Canvas -->
+  <circle cx="250" cy="250" r="245" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2" />
+
+  <!-- Inner Brand Symbol Group -->
+  <g fill="#0A0A0A" transform="translate(0, -5)">
+    <!-- Graduation Cap / Mortarboard Top -->
+    <polygon points="250,55 365,115 250,175 135,115" />
+    
+    <!-- Cap Under-band / Headband -->
+    <path d="M185,142 C185,142 205,170 250,170 C295,170 315,142 315,142 L315,160 C315,188 285,200 250,200 C215,200 185,188 185,160 Z" />
+
+    <!-- Cap Tassel (Right side) -->
+    <path d="M345,125 L345,190 Q345,198 340,205 L350,205 Q345,198 345,190 Z" fill="#0A0A0A" />
+    <polygon points="338,205 352,205 348,245 342,245" />
+    <circle cx="345" cy="125" r="4" fill="#0A0A0A" />
+
+    <!-- Stylized Modern Bold 'E' in Center -->
+    <path d="M188,190 C188,190 220,135 295,145 L295,182 C245,175 228,210 228,230 L305,230 L305,270 L228,270 C228,300 250,325 295,315 L295,355 C220,365 188,310 188,250 Z" />
+
+    <!-- Open Book Base (Dynamic Layered Pages) -->
+    <!-- Left Book Wings -->
+    <path d="M250,345 C215,315 160,305 110,315 L110,395 C160,385 215,400 250,430 Z" />
+    <path d="M250,370 C218,345 165,340 120,350 L120,410 C165,400 218,415 250,445 Z" opacity="0.9" />
+    <path d="M250,395 C220,375 170,370 130,380 L130,425 C170,418 220,430 250,460 Z" opacity="0.8" />
+
+    <!-- Right Book Wings -->
+    <path d="M250,345 C285,315 340,305 390,315 L390,395 C340,385 285,400 250,430 Z" />
+    <path d="M250,370 C282,345 335,340 380,350 L380,410 C335,400 282,415 250,445 Z" opacity="0.9" />
+    <path d="M250,395 C280,375 330,370 370,380 L370,425 C330,418 280,430 250,460 Z" opacity="0.8" />
+
+    <!-- Central Spine Accent -->
+    <polygon points="247,330 253,330 252,440 248,440" fill="#0A0A0A" />
+  </g>
+
+  <!-- Typography: EDUVERSE -->
+  <text x="250" y="395" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="34" font-weight="900" letter-spacing="4" fill="#0A0A0A">EDUVERSE</text>
+
+  <!-- Divider Rule and Subtitle: — LEARN. COMPETE. ACHIEVE. — -->
+  <g fill="#0A0A0A" transform="translate(0, 420)">
+    <!-- Left dash rule -->
+    <line x1="85" y1="-3" x2="125" y2="-3" stroke="#0A0A0A" stroke-width="2.5" stroke-linecap="round" />
+    <!-- Subtitle text -->
+    <text x="250" y="0" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="800" letter-spacing="3" fill="#0A0A0A">LEARN. COMPETE. ACHIEVE.</text>
+    <!-- Right dash rule -->
+    <line x1="375" y1="-3" x2="415" y2="-3" stroke="#0A0A0A" stroke-width="2.5" stroke-linecap="round" />
+  </g>
+</svg>
