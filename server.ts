@@ -25,8 +25,8 @@ import { evaluateSchoolAutoVerification } from './src/services/schoolService';
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const currentFilename = typeof __filename !== 'undefined' ? __filename : (typeof import.meta !== 'undefined' && import.meta.url ? fileURLToPath(import.meta.url) : '');
+const currentDirname = typeof __dirname !== 'undefined' ? __dirname : (currentFilename ? path.dirname(currentFilename) : process.cwd());
 
 // In-Memory Server-authoritative Exam Session & Results Store (Synchronized during process runtime)
 interface ServerExamSession {
