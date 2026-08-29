@@ -14,7 +14,7 @@ import {
   updateProfile as updateFirebaseProfile,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, googleProvider, db, getUserProfile } from '../services/firebase';
+import { auth, googleProvider, db, getUserProfile, requestPasswordReset } from '../services/firebase';
 import { UserProfile, OnboardingState } from '../types';
 
 export const FOUNDER_ADMIN_EMAIL = 'shohruhabdukarimov05@gmail.com';
@@ -302,7 +302,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const resetPassword = async (email: string): Promise<void> => {
     try {
-      await sendPasswordResetEmail(auth, email.trim());
+      await requestPasswordReset(email.trim());
     } catch (error) {
       console.error('Reset password error:', error);
       throw error;

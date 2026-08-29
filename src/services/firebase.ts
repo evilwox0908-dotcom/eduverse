@@ -49,9 +49,34 @@ export async function confirmNewPassword(oobCode: string, newPass: string): Prom
   return await confirmPasswordReset(auth, oobCode, newPass);
 }
 
-// Helper to request password reset email
+// Helper to request password reset email with robust actionCodeSettings and fallback
 export async function requestPasswordReset(email: string): Promise<void> {
-  return await sendPasswordResetEmail(auth, email.trim());
+  const trimmed = email.trim();
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const actionCodeSettings = currentOrigin
+    ? {
+        url: `${currentOrigin}/#/?mode=resetPassword`,
+        handleCodeInApp: true,
+      }
+    : undefined;
+
+  try {
+    if (actionCodeSettings) {
+      await sendPasswordResetEmail(auth, trimmed, actionCodeSettings);
+    } else {
+      await sendPasswordResetEmail(auth, trimmed);
+    }
+  } catch (error: any) {
+    // If continue-uri is not whitelisted, fallback seamlessly to default Firebase action handler
+    if (
+      error?.code === 'auth/unauthorized-continue-uri' ||
+      error?.code === 'auth/invalid-continue-uri'
+    ) {
+      await sendPasswordResetEmail(auth, trimmed);
+    } else {
+      throw error;
+    }
+  }
 }
 
 

@@ -32,14 +32,18 @@ service cloud.firestore {
       // User creation during auth onboarding
       allow create: if isOwner(userId) && (
         !('role' in request.resource.data) ||
-        request.resource.data.role == 'student' ||
+        request.resource.data.role in ['student', 'teacher', 'parent'] ||
         (request.auth.token.email == 'shohruhabdukarimov05@gmail.com' && request.resource.data.role == 'admin')
       );
 
-      // Updates: Ordinary users can only update safe fields; cannot self-promote to admin or fabricate ranks
+      // Updates: Allow users to update their profile while preventing non-admins from self-promoting to 'admin'
       allow update: if (
-        isOwner(userId) &&
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'eduverseScore', 'schoolVerificationStatus']))
+        isOwner(userId) && (
+          !('role' in request.resource.data) ||
+          request.resource.data.role == resource.data.role ||
+          request.resource.data.role in ['student', 'teacher', 'parent'] ||
+          (request.auth.token.email == 'shohruhabdukarimov05@gmail.com' && request.resource.data.role == 'admin')
+        )
       ) || isAdmin();
 
       allow delete: if isAdmin();

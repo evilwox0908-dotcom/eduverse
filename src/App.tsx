@@ -58,7 +58,18 @@ function AppContent() {
   // Sync with window location hash
   useEffect(() => {
     const handleHashChange = () => {
-      const rawHash = window.location.hash.replace('#/', '').replace('#', '');
+      // Check query params in window.location.search or hash for reset password mode
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '');
+      const mode = urlParams.get('mode') || hashParams.get('mode');
+      const oobCode = urlParams.get('oobCode') || hashParams.get('oobCode');
+
+      if (mode === 'resetPassword' || oobCode) {
+        setCurrentView('forgot-password');
+        return;
+      }
+
+      const rawHash = window.location.hash.split('?')[0].replace('#/', '').replace('#', '');
 
       // Check for dynamic /competitions/:id/results/:resultId
       if (rawHash.startsWith('competitions/') && rawHash.includes('/results/')) {
