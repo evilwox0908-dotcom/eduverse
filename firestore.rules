@@ -26,27 +26,12 @@ service cloud.firestore {
 
     // User profiles
     match /users/{userId} {
-      // Students can read their own profile, admins can read any profile
-      allow read: if isOwner(userId) || isAdmin();
-      
-      // User creation during auth onboarding
-      allow create: if isOwner(userId) && (
-        !('role' in request.resource.data) ||
-        request.resource.data.role in ['student', 'teacher', 'parent'] ||
-        (request.auth.token.email == 'shohruhabdukarimov05@gmail.com' && request.resource.data.role == 'admin')
+      // Users can read and write their own profile document; Admin can manage all profiles
+      allow read, write: if isSignedIn() && (
+        request.auth.uid == userId ||
+        request.auth.token.email == 'shohruhabdukarimov05@gmail.com' ||
+        request.auth.token.admin == true
       );
-
-      // Updates: Allow users to update their profile while preventing non-admins from self-promoting to 'admin'
-      allow update: if (
-        isOwner(userId) && (
-          !('role' in request.resource.data) ||
-          request.resource.data.role == resource.data.role ||
-          request.resource.data.role in ['student', 'teacher', 'parent'] ||
-          (request.auth.token.email == 'shohruhabdukarimov05@gmail.com' && request.resource.data.role == 'admin')
-        )
-      ) || isAdmin();
-
-      allow delete: if isAdmin();
 
       // Private AI Teacher chats subcollection
       match /aiChats/{chatId} {
